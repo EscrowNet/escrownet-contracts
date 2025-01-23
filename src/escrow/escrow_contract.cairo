@@ -1,11 +1,10 @@
-use starknet::{ContractAddress};
-
 #[starknet::contract]
 mod EscrowContract {
-    use starknet::{ContractAddress, storage::Map};
+    use starknet::{ContractAddress, storage::Map, contract_address_const};
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess, StoragePathEntry,};
     use starknet::get_block_timestamp;
-    use core::starknet::{get_caller_address};
+    use core::starknet::{get_caller_address, get_contract_address};
+    use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 
 
     #[storage]
@@ -16,13 +15,16 @@ mod EscrowContract {
         time_frame: u64,
         worth_of_asset: u256,
         depositor_approve: Map::<ContractAddress, bool>,
-        arbiter_approve: Map::<ContractAddress, bool>
+        arbiter_approve: Map::<ContractAddress, bool>,
+        escrow_balance: u256,
+        strk_address: ContractAddress
     }
 
     #[event]
     #[derive(Drop, starknet::Event)]
     pub enum Event {
         ApproveTransaction: ApproveTransaction,
+        EscrowFunded: EscrowFunded,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -30,6 +32,13 @@ mod EscrowContract {
         depositor: ContractAddress,
         approval: bool,
         time_of_approval: u64,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct EscrowFunded {
+        depositor: ContractAddress,
+        amount: u256,
+        escrow_address: ContractAddress,
     }
 
     #[constructor]
@@ -42,6 +51,7 @@ mod EscrowContract {
         self.benefeciary.write(benefeciary);
         self.depositor.write(depositor);
         self.arbiter.write(arbiter);
+        self.strk_address.write(contract_address_const::<0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d>());
     }
 
 
@@ -72,5 +82,27 @@ mod EscrowContract {
                     depositor: address, approval: true, time_of_approval: timestamp,
                 }
             );
+    }
+
+    fn fund_escrow(ref self: ContractState, amount: u256) {
+        // seting needed variables
+        let depositor = self.depositor.read();
+        let caller_address = get_caller_address();
+        let contract_address = get_contract_address();
+        // Make an assert the check if the caller address is the same as the depositor address.
+        assert(depositor==caller_address, 'Only depositor can fund.');
+        // Use the OpenZeppelin ERC20 contract to transfer the fund from the caller address to the scrow contract.
+        let token = IERC20Dispatcher { contract_address: self.strk_address.read() };
+        token.transfer_from(caller_address, contract_address, amount);
+        // Update the escrow's balance in the Storage 
+        self.escrow_balance.write(self.escrow_balance.read() + amount);
+        // Emit Escrow funded Event 
+        self
+            .emit(
+                EscrowFunded {
+                    depositor, amount, escrow_address:contract_address
+                }
+            );
+
     }
 }
