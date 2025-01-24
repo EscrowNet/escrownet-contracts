@@ -6,7 +6,8 @@ mod EscrowContract {
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess, StoragePathEntry,};
     use starknet::get_block_timestamp;
     use core::starknet::{get_caller_address};
-
+    //Import the interface
+    use escrownet_contract::interface::IEscrow;
 
     #[storage]
     struct Storage {
@@ -136,5 +137,9 @@ mod EscrowContract {
                 })
             );
     
+    }
+
+    fn get_beneficiary(self: @ContractState) -> ContractAddress {
+        self.benefeciary.read();
     }
 }
