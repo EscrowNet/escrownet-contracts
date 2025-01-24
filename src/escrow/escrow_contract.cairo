@@ -16,7 +16,8 @@ mod EscrowContract {
         worth_of_asset: u256,
         depositor_approve: Map::<ContractAddress, bool>,
         arbiter_approve: Map::<ContractAddress, bool>,
-        escrow_balance: u256,
+        // Track the funded escrows. Start as false and is setted to true when successfully funds the escrow amount 
+        escrow_funded: Map::<u64, bool>, 
         // Track whether an escrow ID has been used
         escrow_exists: Map::<u64, bool>,
         // Store escrow amounts
@@ -97,7 +98,7 @@ mod EscrowContract {
             );
     }
 
-    fn fund_escrow(ref self: ContractState, amount: u256, token_address: ContractAddress ) {
+    fn fund_escrow(ref self: ContractState, escrow_id:u64, amount: u256, token_address: ContractAddress ) {
         // seting needed variables
         let depositor = self.depositor.read();
         let caller_address = get_caller_address();
@@ -107,8 +108,8 @@ mod EscrowContract {
         // Use the OpenZeppelin ERC20 contract to transfer the fund from the caller address to the scrow contract.
         let token = IERC20Dispatcher { contract_address: token_address };
         token.transfer_from(caller_address, contract_address, amount);
-        // Update the escrow's balance in the Storage 
-        self.escrow_balance.write(self.escrow_balance.read() + amount);
+        // Set escrow to funded
+        self.escrow_funded.entry(escrow_id).write(true);
         // Emit Escrow funded Event 
         self
             .emit(
