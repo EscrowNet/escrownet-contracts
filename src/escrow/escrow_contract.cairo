@@ -138,4 +138,8 @@ mod EscrowContract {
             );
     
     }
+
+    fn get_beneficiary(self: @ContractState) -> ContractAddress {
+        self.benefeciary.read();
+    }
 }
