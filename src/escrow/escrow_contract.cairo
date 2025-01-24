@@ -99,12 +99,17 @@ mod EscrowContract {
     }
 
     fn fund_escrow(ref self: ContractState, escrow_id:u64, amount: u256, token_address: ContractAddress ) {
+        // check if escrow exists
+        assert(self.escrow_exists.entry(escrow_id).read(), 'Escrow not exists.');
         // seting needed variables
         let depositor = self.depositor.read();
         let caller_address = get_caller_address();
         let contract_address = get_contract_address();
+        let expected_amount = self.escrow_amounts.entry(escrow_id).read();
         // Make an assert the check if the caller address is the same as the depositor address.
         assert(depositor==caller_address, 'Only depositor can fund.');
+        // Check that the correct amount was sended.
+        assert(amount>=expected_amount, 'Amount is less than expected');
         // Use the OpenZeppelin ERC20 contract to transfer the fund from the caller address to the scrow contract.
         let token = IERC20Dispatcher { contract_address: token_address };
         token.transfer_from(caller_address, contract_address, amount);
