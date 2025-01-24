@@ -1,11 +1,11 @@
-use starknet::{ContractAddress};
-
 #[starknet::contract]
 mod EscrowContract {
-    use starknet::{ContractAddress, storage::Map};
+    use starknet::event::EventEmitter;
+use starknet::{ContractAddress, storage::Map};
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess, StoragePathEntry,};
     use starknet::get_block_timestamp;
     use core::starknet::{get_caller_address};
+    use crate::interface::ierc20:: {IERC20Dispatcher, IERC20DispatcherTrait};
 
 
     #[storage]
@@ -16,7 +16,8 @@ mod EscrowContract {
         time_frame: u64,
         worth_of_asset: u256,
         depositor_approve: Map::<ContractAddress, bool>,
-        arbiter_approve: Map::<ContractAddress, bool>
+        arbiter_approve: Map::<ContractAddress, bool>,
+        balance: u256
     }
 
     #[event]
@@ -72,5 +73,19 @@ mod EscrowContract {
                     depositor: address, approval: true, time_of_approval: timestamp,
                 }
             );
+    }
+
+    #[external(v0)]
+    fn distribute_escrow_earnings(ref self: ContractState, escrow_id: u64, release_address: ContractAddress){
+        let despositor_approved = self.depositor_approve.entry(self.depositor.read()).read();
+        let arbiter_approved = self.arbiter_approve.entry(self.arbiter.read()).read();
+
+        if despositor_approved && arbiter_approved{
+            let earnings = IERC20Dispatcher::new(caller);
+            earnings.transfer_from(self.depositor, release_address, self.worth_of_asset);
+        }
+            
+
+
     }
 }
