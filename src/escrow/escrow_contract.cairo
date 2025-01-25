@@ -28,6 +28,7 @@ mod EscrowContract {
     #[derive(Drop, starknet::Event)]
     pub enum Event {
         ApproveTransaction: ApproveTransaction,
+        EscrowEarningsDistributed: EscrowEarningsDistributed
     }
 
     #[derive(Drop, starknet::Event)]
@@ -35,6 +36,13 @@ mod EscrowContract {
         depositor: ContractAddress,
         approval: bool,
         time_of_approval: u64,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct EscrowEarningsDistributed {
+        escrow_id: u64,
+        release_address: ContractAddress,
+        amount: u256
     }
 
     #[constructor]
@@ -106,5 +114,13 @@ mod EscrowContract {
 
         // Update balance after successful transfer
         self.balance.write(0);
+
+        self.emit(Event::EscrowEarningsDistributed(
+            EscrowEarningsDistributed {
+                escrow_id: escrow_id,
+                release_address: release_address,
+                amount: self.worth_of_asset.read()
+            }
+        ));
     }
 }
