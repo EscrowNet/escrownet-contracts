@@ -1,7 +1,8 @@
 #[starknet::contract]
 mod EscrowContract {
     use starknet::event::EventEmitter;
-use starknet::{ContractAddress, storage::Map};
+    use core::num::traits::Zero;
+    use starknet::{ContractAddress, storage::Map};
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess, StoragePathEntry,};
     use starknet::get_block_timestamp;
     use core::starknet::{get_caller_address};
@@ -10,14 +11,17 @@ use starknet::{ContractAddress, storage::Map};
 
     #[storage]
     struct Storage {
+        escrow_id: u64,
         depositor: ContractAddress,
         benefeciary: ContractAddress,
         arbiter: ContractAddress,
+        token_address: ContractAddress,
         time_frame: u64,
         worth_of_asset: u256,
+        balance: u256,
         depositor_approve: Map::<ContractAddress, bool>,
         arbiter_approve: Map::<ContractAddress, bool>,
-        balance: u256
+        escrow_exists: Map::<u64, bool>
     }
 
     #[event]
@@ -77,15 +81,30 @@ use starknet::{ContractAddress, storage::Map};
 
     #[external(v0)]
     fn distribute_escrow_earnings(ref self: ContractState, escrow_id: u64, release_address: ContractAddress){
-        let despositor_approved = self.depositor_approve.entry(self.depositor.read()).read();
+        assert(escrow_id == self.escrow_id.read(), 'Escrow Contract is not valid');
+        
+        let depositor_approved = self.depositor_approve.entry(self.depositor.read()).read();
         let arbiter_approved = self.arbiter_approve.entry(self.arbiter.read()).read();
+        // Verify both approvals
+        assert(depositor_approved && arbiter_approved, 'Escrow not approved');
+        
+        //Verify token validity
+        let token_address = self.token_address.read();
+        assert(!token_address.is_zero(), 'Invalid token address');
 
-        if despositor_approved && arbiter_approved{
-            let earnings = IERC20Dispatcher::new(caller);
-            earnings.transfer_from(self.depositor, release_address, self.worth_of_asset);
-        }
-            
+        //Verify if funds were already distributed or there is enough balance
+        assert(self.balance.read() > 0, 'Funds already distributed');
+        assert(self.balance.read() >= self.worth_of_asset.read(), 'Insufficient funds');
 
+        // Create token dispatcher
+        let token_contract = IERC20Dispatcher { contract_address: token_address };
+        let depositor = self.depositor.read();
 
+        // Transfer tokens
+        let transfer_result = token_contract.transfer_from(depositor, release_address, self.worth_of_asset.read());
+        assert(transfer_result, 'Token transfer failed');
+
+        // Update balance after successful transfer
+        self.balance.write(0);
     }
 }
