@@ -1,7 +1,7 @@
-use starknet::{ContractAddress};
-
 #[starknet::contract]
 mod EscrowContract {
+    use starknet::event::EventEmitter;
+    use crate::interface::ierc20:: {IERC20Dispatcher, IERC20DispatcherTrait};
     use core::num::traits::Zero;
     use starknet::{ContractAddress, storage::Map, contract_address_const};
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess, StoragePathEntry};
@@ -13,19 +13,17 @@ mod EscrowContract {
 
     #[storage]
     struct Storage {
+        escrow_id: u64,
         depositor: ContractAddress,
         benefeciary: ContractAddress,
         arbiter: ContractAddress,
-        time_frame: u64, // #[view]
+        token_address: ContractAddress,
+        time_frame: u64,
         worth_of_asset: u256,
-        client_address: ContractAddress,
-        provider_address: ContractAddress,
         balance: u256,
         depositor_approve: Map::<ContractAddress, bool>,
         arbiter_approve: Map::<ContractAddress, bool>,
-        // Track whether an escrow ID has been used
         escrow_exists: Map::<u64, bool>,
-        // Store escrow amounts
         escrow_amounts: Map::<u64, u256>,
     }
 
@@ -33,6 +31,7 @@ mod EscrowContract {
     #[derive(Drop, starknet::Event)]
     pub enum Event {
         ApproveTransaction: ApproveTransaction,
+        EscrowEarningsDistributed: EscrowEarningsDistributed
         EscrowInitialized: EscrowInitialized,
     }
 
@@ -41,6 +40,13 @@ mod EscrowContract {
         depositor: ContractAddress,
         approval: bool,
         time_of_approval: u64,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct EscrowEarningsDistributed {
+        escrow_id: u64,
+        release_address: ContractAddress,
+        amount: u256
     }
 
     // New event for escrow initialization
@@ -52,6 +58,7 @@ mod EscrowContract {
         amount: u256,
         timestamp: u64,
     }
+    
     #[constructor]
     fn constructor(
         ref self: ContractState,
@@ -64,49 +71,7 @@ mod EscrowContract {
         self.arbiter.write(arbiter);
     }
 
-    #[external(v0)]
-    fn initialize_escrow(
-        ref self: ContractState,
-        escrow_id: u64,
-        beneficiary: ContractAddress,
-        provider_address: ContractAddress,
-        amount: u256,
-    ) {
-        // Additional validation for addresses
-        assert(beneficiary != contract_address_const::<'0x0'>(), 'Invalid beneficiary address');
-        assert(provider_address != contract_address_const::<'0x0'>(), 'Invalid provider address');
-        let caller = get_caller_address();
-
-        // Ensure caller is authorized (this might need adjustment based on requirements)
-        assert(caller == self.depositor.read(), 'Unauthorized caller');
-
-        // Check if escrow already exists
-        let exists = self.escrow_exists.read(escrow_id);
-        assert(!exists, 'Escrow ID already exists');
-
-        // Basic validation
-        assert(amount > 0, 'Amount must be positive');
-        assert(beneficiary != provider_address, 'Invalid addresses');
-
-        // Store escrow details
-        self.escrow_exists.write(escrow_id, true);
-        self.escrow_amounts.write(escrow_id, amount);
-        self.worth_of_asset.write(amount);
-
-        // Emit initialization event
-        self
-            .emit(
-                Event::EscrowInitialized(
-                    EscrowInitialized {
-                        escrow_id,
-                        beneficiary,
-                        provider: provider_address,
-                        amount,
-                        timestamp: get_block_timestamp(),
-                    },
-                ),
-            );
-    }
+    
 
     #[abi(embed_v0)]
     impl EscrowImpl of IEscrow<ContractState> {
@@ -210,5 +175,40 @@ mod EscrowContract {
                     )
                 );
         }
+        
+          fn distribute_escrow_earnings(ref self: ContractState, escrow_id: u64, release_address: ContractAddress){
+            assert(escrow_id == self.escrow_id.read(), 'Escrow Contract is not valid');
+
+            let depositor_approved = self.depositor_approve.entry(self.depositor.read()).read();
+            let arbiter_approved = self.arbiter_approve.entry(self.arbiter.read()).read();
+            // Verify both approvals
+            assert(depositor_approved && arbiter_approved, 'Escrow not approved');
+
+            //Verify token validity
+            let token_address = self.token_address.read();
+            assert(!token_address.is_zero(), 'Invalid token address');
+
+            //Verify if funds were already distributed or there is enough balance
+            assert(self.balance.read() > 0, 'Funds already distributed');
+            assert(self.balance.read() >= self.worth_of_asset.read(), 'Insufficient funds');
+
+            // Create token dispatcher
+            let token_contract = IERC20Dispatcher { contract_address: token_address };
+            let depositor = self.depositor.read();
+
+            // Transfer tokens
+            let transfer_result = token_contract.transfer_from(depositor, release_address, self.worth_of_asset.read());
+            assert(transfer_result, 'Token transfer failed');
+
+            // Update balance after successful transfer
+            self.balance.write(0);
+
+            self.emit(Event::EscrowEarningsDistributed(
+                EscrowEarningsDistributed {
+                    escrow_id: escrow_id,
+                    release_address: release_address,
+                    amount: self.worth_of_asset.read()
+                }
+        ));
     }
 }
