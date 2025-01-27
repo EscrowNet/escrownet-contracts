@@ -1,10 +1,13 @@
 #[starknet::contract]
 mod EscrowContract {
+    use core::num::traits::Zero;
     use starknet::{ContractAddress, storage::Map, contract_address_const};
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess, StoragePathEntry};
     use starknet::get_block_timestamp;
     use core::starknet::{get_caller_address, get_contract_address};
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
+    use crate::escrow::types::Escrow;
+    use crate::interface::iescrow::{IEscrow};
 
 
     #[storage]
@@ -14,6 +17,9 @@ mod EscrowContract {
         arbiter: ContractAddress,
         time_frame: u64,
         worth_of_asset: u256,
+        client_address: ContractAddress,
+        provider_address: ContractAddress,
+        balance: u256,
         depositor_approve: Map::<ContractAddress, bool>,
         arbiter_approve: Map::<ContractAddress, bool>,
         // Track the funded escrows. Start as false and is setted to true when successfully funds
@@ -69,23 +75,57 @@ mod EscrowContract {
         self.arbiter.write(arbiter);
     }
 
+    #[abi(embed_v0)]
+    impl EscrowImpl of IEscrow<ContractState> {
+        fn get_escrow_details(ref self: ContractState, escrow_id: u256) -> Escrow {
+            // Validate if the escrow exists
+            let depositor = self.depositor.read();
+            assert(!depositor.is_zero(), 'Escrow does not exist');
 
-    fn approve(ref self: ContractState, benefeciary: ContractAddress) {
-        let caller = get_caller_address();
-        // check if the address is a depositor
-        let mut address = self.depositor.read();
-        // check if address exist
-        if address != 0.try_into().unwrap() {
-            // address type is a depositor
-            address = caller
-        }
-        // check if address is a benificary
-        address = self.benefeciary.read();
+            let client_address = self.client_address.read();
+            let provider_address = self.provider_address.read();
+            let amount = self.worth_of_asset.read();
+            let balance = self.balance.read();
 
-        if address != 0.try_into().unwrap() {
-            // address type is a beneficary
-            address = caller
+            let escrow = Escrow {
+                client_address: client_address,
+                provider_address: provider_address,
+                amount: amount,
+                balance: balance,
+            };
+            return escrow;
         }
+
+
+        fn approve(ref self: ContractState, benefeciary: ContractAddress) {
+            let caller = get_caller_address();
+            // check if the address is a depositor
+            let mut address = self.depositor.read();
+            // check if address exist
+            if address != 0.try_into().unwrap() {
+                // address type is a depositor
+                address = caller
+            }
+            // check if address is a benificary
+            address = self.benefeciary.read();
+
+            if address != 0.try_into().unwrap() {
+                // address type is a beneficary
+                address = caller
+            }
+            // map address to true
+            self.depositor_approve.entry(address).write(true);
+            let timestamp = get_block_timestamp();
+
+            // Emit the event
+            self
+                .emit(
+                    ApproveTransaction {
+                        depositor: address, approval: true, time_of_approval: timestamp,
+                    }
+                );
+        }
+
         // map address to true
         self.depositor_approve.entry(address).write(true);
         let timestamp = get_block_timestamp();
