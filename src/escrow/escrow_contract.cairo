@@ -127,7 +127,7 @@ mod EscrowContract {
         }
 
         // map address to true
-        self.depositor_approve.entry(address).write(true);
+        self.depositor_approve.write(address, true);
         let timestamp = get_block_timestamp();
 
         // Emit the event
