@@ -1,4 +1,5 @@
 use starknet::ContractAddress;
+
 #[starknet::interface]
 pub trait IERC20<TState> {
     fn total_supply(self: @TState) -> u256;
