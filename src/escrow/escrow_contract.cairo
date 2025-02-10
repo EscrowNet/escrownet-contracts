@@ -1,5 +1,3 @@
-use starknet::{ContractAddress};
-
 #[starknet::contract]
 mod EscrowContract {
     use core::num::traits::Zero;
@@ -7,7 +5,7 @@ mod EscrowContract {
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess, StoragePathEntry};
     use starknet::get_block_timestamp;
     use core::starknet::{get_caller_address};
-    use crate::escrow::types::Escrow;
+    use crate::escrow::{types::Escrow, errors::Errors};
     use crate::interface::iescrow::{IEscrow};
 
     #[storage]
@@ -69,7 +67,7 @@ mod EscrowContract {
         fn get_escrow_details(ref self: ContractState, escrow_id: u256) -> Escrow {
             // Validate if the escrow exists
             let depositor = self.depositor.read();
-            assert(!depositor.is_zero(), 'Escrow does not exist');
+            assert(!depositor.is_zero(), Errors::ESCROW_NOT_FOUND);
 
             let client_address = self.client_address.read();
             let provider_address = self.provider_address.read();
@@ -130,22 +128,26 @@ mod EscrowContract {
             amount: u256
         ) {
             // Additional validation for addresses
-            assert(beneficiary != contract_address_const::<'0x0'>(), 'Invalid beneficiary address');
             assert(
-                provider_address != contract_address_const::<'0x0'>(), 'Invalid provider address'
+                beneficiary != contract_address_const::<'0x0'>(),
+                Errors::INVALID_BENEFICIARY_ADDRESS
+            );
+            assert(
+                provider_address != contract_address_const::<'0x0'>(),
+                Errors::INVALID_PROVIDER_ADDRESS
             );
             let caller = get_caller_address();
 
             // Ensure caller is authorized (this might need adjustment based on requirements)
-            assert(caller == self.depositor.read(), 'Unauthorized caller');
+            assert(caller == self.depositor.read(), Errors::UNAUTHORIZED_CALLER);
 
             // Check if escrow already exists
             let exists = self.escrow_exists.read(escrow_id);
-            assert(!exists, 'Escrow ID already exists');
+            assert(!exists, Errors::ESCROW_ID_ALREADY_EXISTS);
 
             // Basic validation
-            assert(amount > 0, 'Amount must be positive');
-            assert(beneficiary != provider_address, 'Invalid addresses');
+            assert(amount > 0, Errors::INVALID_AMOUNT);
+            assert(beneficiary != provider_address, Errors::INVALID_ADDRESSES);
 
             // Store escrow details
             self.escrow_exists.write(escrow_id, true);
