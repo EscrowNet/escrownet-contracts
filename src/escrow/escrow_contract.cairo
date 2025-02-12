@@ -7,7 +7,6 @@ mod EscrowContract {
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess, StoragePathEntry};
     use starknet::get_block_timestamp;
     use core::starknet::{get_caller_address};
-    use crate::interface::iescrow::{IEscrowContract};
     use crate::escrow::types::Escrow;
     use crate::interface::iescrow::{IEscrow};
 
@@ -71,7 +70,6 @@ mod EscrowContract {
         self.arbiter.write(arbiter);
     }
 
-    
 
     #[abi(embed_v0)]
     impl EscrowImpl of IEscrow<ContractState> {
@@ -174,6 +172,10 @@ mod EscrowContract {
                         }
                     )
                 );
+        }
+
+        fn get_depositor(self: @ContractState) -> ContractAddress {
+            self.depositor.read()
         }
         
           fn distribute_escrow_earnings(ref self: ContractState, escrow_id: u64, release_address: ContractAddress){
