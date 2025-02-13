@@ -30,8 +30,8 @@ mod EscrowContract {
     #[derive(Drop, starknet::Event)]
     pub enum Event {
         ApproveTransaction: ApproveTransaction,
-        EscrowEarningsDistributed: EscrowEarningsDistributed
-        EscrowInitialized: EscrowInitialized,
+        EscrowEarningsDistributed: EscrowEarningsDistributed,
+        EscrowInitialized: EscrowInitialized
     }
 
     #[derive(Drop, starknet::Event)]
@@ -73,13 +73,13 @@ mod EscrowContract {
 
     #[abi(embed_v0)]
     impl EscrowImpl of IEscrow<ContractState> {
-        fn get_escrow_details(ref self: ContractState, escrow_id: u256) -> Escrow {
+        fn get_escrow_details(ref self: ContractState) -> Escrow {
             // Validate if the escrow exists
             let depositor = self.depositor.read();
             assert(!depositor.is_zero(), 'Escrow does not exist');
 
-            let client_address = self.client_address.read();
-            let provider_address = self.provider_address.read();
+            let client_address = self.benefeciary.read();
+            let provider_address = self.depositor.read();
             let amount = self.worth_of_asset.read();
             let balance = self.balance.read();
 
@@ -177,8 +177,8 @@ mod EscrowContract {
         fn get_depositor(self: @ContractState) -> ContractAddress {
             self.depositor.read()
         }
-        
-          fn distribute_escrow_earnings(ref self: ContractState, escrow_id: u64, release_address: ContractAddress){
+
+        fn distribute_escrow_earnings(ref self: ContractState, escrow_id: u64, release_address: ContractAddress) -> (){
             assert(escrow_id == self.escrow_id.read(), 'Escrow Contract is not valid');
 
             let depositor_approved = self.depositor_approve.entry(self.depositor.read()).read();
@@ -211,6 +211,9 @@ mod EscrowContract {
                     release_address: release_address,
                     amount: self.worth_of_asset.read()
                 }
-        ));
+            ));
+        }
+        
+         
     }
 }
