@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 pub use starknet::{
-    ContractAddress, class_hash::ClassHash, syscalls::deploy_syscall, SyscallResultTrait
+    ContractAddress, class_hash::ClassHash, syscalls::deploy_syscall, SyscallResultTrait,
 };
 
 #[starknet::interface]
@@ -10,7 +10,7 @@ pub trait IEscrowFactory<TContractState> {
         beneficiary: ContractAddress,
         depositor: ContractAddress,
         arbiter: ContractAddress,
-        salt: felt252
+        salt: felt252,
     ) -> ContractAddress;
 
     fn get_escrow_contracts(ref self: TContractState) -> Array<ContractAddress>;
@@ -35,19 +35,19 @@ pub mod EscrowFactory {
 
     #[embeddable_as(Escrows)]
     impl EscrowFactoryImpl<
-        TContractState, +HasComponent<TContractState>
+        TContractState, +HasComponent<TContractState>,
     > of IEscrowFactory<ComponentState<TContractState>> {
         fn deploy_escrow(
             ref self: ComponentState<TContractState>,
             beneficiary: ContractAddress,
             depositor: ContractAddress,
             arbiter: ContractAddress,
-            salt: felt252
+            salt: felt252,
         ) -> ContractAddress {
             let escrow_id = self.escrow_count.read() + 1;
 
             let mut constructor_calldata: Array = array![
-                beneficiary.into(), depositor.into(), arbiter.into()
+                beneficiary.into(), depositor.into(), arbiter.into(),
             ];
 
             // Deploy the Escrow contract
@@ -63,7 +63,7 @@ pub mod EscrowFactory {
         }
 
         fn get_escrow_contracts(
-            ref self: ComponentState<TContractState>
+            ref self: ComponentState<TContractState>,
         ) -> Array<ContractAddress> {
             let escrow_count = self.escrow_count.read();
             let mut escrow_addresses: Array<ContractAddress> = array![];

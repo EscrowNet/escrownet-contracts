@@ -4,10 +4,10 @@ use starknet::ContractAddress;
 use snforge_std::{
     declare, ContractClassTrait, DeclareResultTrait, start_cheat_caller_address,
     stop_cheat_caller_address, start_cheat_block_timestamp, stop_cheat_block_timestamp, spy_events,
-    EventSpyAssertionsTrait
+    EventSpyAssertionsTrait,
 };
 use escrownet_contract::interface::iescrow::{IEscrowDispatcher};
-
+use escrownet_contract::escrow::errors::Errors;
 
 fn BENEFICIARY() -> ContractAddress {
     'benefeciary'.try_into().unwrap()
@@ -73,7 +73,7 @@ fn test_initialize_escrow() {
 
     let escrow_data = escrow_contract_dispatcher.get_escrow_details(7);
 
-    assert(escrow_data.amount == 250, 'Invalid amount');
+    assert(escrow_data.amount == 250, Errors::INVALID_AMOUNT);
 
     stop_cheat_caller_address(contract_address);
 }

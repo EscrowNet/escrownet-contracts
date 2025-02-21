@@ -7,7 +7,7 @@ mod EscrowContract {
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess, StoragePathEntry};
     use starknet::get_block_timestamp;
     use core::starknet::{get_caller_address};
-    use crate::escrow::types::Escrow;
+    use crate::escrow::{types::Escrow, errors::Errors};
     use crate::interface::iescrow::{IEscrow};
 
     #[storage]
@@ -76,7 +76,7 @@ mod EscrowContract {
         fn get_escrow_details(ref self: ContractState) -> Escrow {
             // Validate if the escrow exists
             let depositor = self.depositor.read();
-            assert(!depositor.is_zero(), 'Escrow does not exist');
+            assert(!depositor.is_zero(), Errors::ESCROW_NOT_FOUND);
 
             let client_address = self.benefeciary.read();
             let provider_address = self.depositor.read();
@@ -118,7 +118,7 @@ mod EscrowContract {
                 .emit(
                     ApproveTransaction {
                         depositor: address, approval: true, time_of_approval: timestamp,
-                    }
+                    },
                 );
         }
 
@@ -134,25 +134,29 @@ mod EscrowContract {
             escrow_id: u64,
             beneficiary: ContractAddress,
             provider_address: ContractAddress,
-            amount: u256
+            amount: u256,
         ) {
             // Additional validation for addresses
-            assert(beneficiary != contract_address_const::<'0x0'>(), 'Invalid beneficiary address');
             assert(
-                provider_address != contract_address_const::<'0x0'>(), 'Invalid provider address'
+                beneficiary != contract_address_const::<'0x0'>(),
+                Errors::INVALID_BENEFICIARY_ADDRESS,
+            );
+            assert(
+                provider_address != contract_address_const::<'0x0'>(),
+                Errors::INVALID_PROVIDER_ADDRESS,
             );
             let caller = get_caller_address();
 
             // Ensure caller is authorized (this might need adjustment based on requirements)
-            assert(caller == self.depositor.read(), 'Unauthorized caller');
+            assert(caller == self.depositor.read(), Errors::UNAUTHORIZED_CALLER);
 
             // Check if escrow already exists
             let exists = self.escrow_exists.read(escrow_id);
-            assert(!exists, 'Escrow ID already exists');
+            assert(!exists, Errors::ESCROW_ID_ALREADY_EXISTS);
 
             // Basic validation
-            assert(amount > 0, 'Amount must be positive');
-            assert(beneficiary != provider_address, 'Invalid addresses');
+            assert(amount > 0, Errors::INVALID_AMOUNT);
+            assert(beneficiary != provider_address, Errors::INVALID_ADDRESSES);
 
             // Store escrow details
             self.escrow_exists.write(escrow_id, true);
@@ -169,8 +173,8 @@ mod EscrowContract {
                             provider: provider_address,
                             amount,
                             timestamp: get_block_timestamp(),
-                        }
-                    )
+                        },
+                    ),
                 );
         }
 
@@ -178,42 +182,10 @@ mod EscrowContract {
             self.depositor.read()
         }
 
-        fn distribute_escrow_earnings(ref self: ContractState, escrow_id: u64, release_address: ContractAddress) -> (){
-            assert(escrow_id == self.escrow_id.read(), 'Escrow Contract is not valid');
 
-            let depositor_approved = self.depositor_approve.entry(self.depositor.read()).read();
-            let arbiter_approved = self.arbiter_approve.entry(self.arbiter.read()).read();
-            // Verify both approvals
-            assert(depositor_approved && arbiter_approved, 'Escrow not approved');
-
-            //Verify token validity
-            let token_address = self.token_address.read();
-            assert(!token_address.is_zero(), 'Invalid token address');
-
-            //Verify if funds were already distributed or there is enough balance
-            assert(self.balance.read() > 0, 'Funds already distributed');
-            assert(self.balance.read() >= self.worth_of_asset.read(), 'Insufficient funds');
-
-            // Create token dispatcher
-            let token_contract = IERC20Dispatcher { contract_address: token_address };
-            let depositor = self.depositor.read();
-
-            // Transfer tokens
-            let transfer_result = token_contract.transfer_from(depositor, release_address, self.worth_of_asset.read());
-            assert(transfer_result, 'Token transfer failed');
-
-            // Update balance after successful transfer
-            self.balance.write(0);
-
-            self.emit(Event::EscrowEarningsDistributed(
-                EscrowEarningsDistributed {
-                    escrow_id: escrow_id,
-                    release_address: release_address,
-                    amount: self.worth_of_asset.read()
-                }
-            ));
+        fn get_beneficiary(self: @ContractState) -> ContractAddress {
+            self.benefeciary.read()
         }
-        
-         
+
     }
 }
