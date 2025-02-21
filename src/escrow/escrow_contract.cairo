@@ -1,5 +1,7 @@
 #[starknet::contract]
 mod EscrowContract {
+    use starknet::event::EventEmitter;
+    use crate::interface::ierc20:: {IERC20Dispatcher, IERC20DispatcherTrait};
     use core::num::traits::Zero;
     use starknet::{ContractAddress, storage::Map, contract_address_const};
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess, StoragePathEntry};
@@ -10,19 +12,17 @@ mod EscrowContract {
 
     #[storage]
     struct Storage {
+        escrow_id: u64,
         depositor: ContractAddress,
         benefeciary: ContractAddress,
         arbiter: ContractAddress,
-        time_frame: u64, // #[view]
+        token_address: ContractAddress,
+        time_frame: u64,
         worth_of_asset: u256,
-        client_address: ContractAddress,
-        provider_address: ContractAddress,
         balance: u256,
         depositor_approve: Map::<ContractAddress, bool>,
         arbiter_approve: Map::<ContractAddress, bool>,
-        // Track whether an escrow ID has been used
         escrow_exists: Map::<u64, bool>,
-        // Store escrow amounts
         escrow_amounts: Map::<u64, u256>,
     }
 
@@ -30,7 +30,8 @@ mod EscrowContract {
     #[derive(Drop, starknet::Event)]
     pub enum Event {
         ApproveTransaction: ApproveTransaction,
-        EscrowInitialized: EscrowInitialized,
+        EscrowEarningsDistributed: EscrowEarningsDistributed,
+        EscrowInitialized: EscrowInitialized
     }
 
     #[derive(Drop, starknet::Event)]
@@ -38,6 +39,13 @@ mod EscrowContract {
         depositor: ContractAddress,
         approval: bool,
         time_of_approval: u64,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct EscrowEarningsDistributed {
+        escrow_id: u64,
+        release_address: ContractAddress,
+        amount: u256
     }
 
     // New event for escrow initialization
@@ -49,6 +57,7 @@ mod EscrowContract {
         amount: u256,
         timestamp: u64,
     }
+    
     #[constructor]
     fn constructor(
         ref self: ContractState,
@@ -64,13 +73,13 @@ mod EscrowContract {
 
     #[abi(embed_v0)]
     impl EscrowImpl of IEscrow<ContractState> {
-        fn get_escrow_details(ref self: ContractState, escrow_id: u256) -> Escrow {
+        fn get_escrow_details(ref self: ContractState) -> Escrow {
             // Validate if the escrow exists
             let depositor = self.depositor.read();
             assert(!depositor.is_zero(), Errors::ESCROW_NOT_FOUND);
 
-            let client_address = self.client_address.read();
-            let provider_address = self.provider_address.read();
+            let client_address = self.benefeciary.read();
+            let provider_address = self.depositor.read();
             let amount = self.worth_of_asset.read();
             let balance = self.balance.read();
 
@@ -173,8 +182,10 @@ mod EscrowContract {
             self.depositor.read()
         }
 
+
         fn get_beneficiary(self: @ContractState) -> ContractAddress {
             self.benefeciary.read()
         }
+
     }
 }
