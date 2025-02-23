@@ -6,4 +6,6 @@ pub mod Errors {
     pub const ESCROW_ID_ALREADY_EXISTS: felt252 = 'Escrow ID already exists';
     pub const INVALID_AMOUNT: felt252 = 'Invalid amount';
     pub const INVALID_ADDRESSES: felt252 = 'Provider cannot be beneficiary';
+    pub const ALREADY_APPROVED: felt252 = 'Already approved';
+    pub const TIMER_NOT_EXPIRED: felt252 = 'timer not expired';
 }

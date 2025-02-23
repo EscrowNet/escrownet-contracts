@@ -14,4 +14,5 @@ pub trait IEscrow<TContractState> {
     fn get_escrow_details(ref self: TContractState, escrow_id: u256) -> Escrow;
     fn get_depositor(self: @TContractState) -> ContractAddress;
     fn get_beneficiary(self: @TContractState) -> ContractAddress;
+    fn refund_escrow(ref self: TContractState, escrow_id: u64, refund_period: u64);
 }
