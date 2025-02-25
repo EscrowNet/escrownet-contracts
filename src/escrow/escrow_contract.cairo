@@ -1,7 +1,7 @@
 #[starknet::contract]
 mod EscrowContract {
     use starknet::event::EventEmitter;
-    use crate::interface::ierc20:: {IERC20Dispatcher, IERC20DispatcherTrait};
+    use crate::interface::ierc20::{IERC20Dispatcher, IERC20DispatcherTrait};
     use core::num::traits::Zero;
     use starknet::{ContractAddress, storage::Map, contract_address_const};
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess, StoragePathEntry};
@@ -36,7 +36,6 @@ mod EscrowContract {
         EscrowEarningsDistributed: EscrowEarningsDistributed,
         EscrowInitialized: EscrowInitialized,
         EscrowFunded: EscrowFunded
-
     }
 
     #[derive(Drop, starknet::Event)]
@@ -205,13 +204,13 @@ mod EscrowContract {
             assert(depositor == caller_address, 'Only depositor can fund.');
             // Check that the correct amount was sended.
             assert(amount >= expected_amount, 'Amount is less than expected');
-            
+
             //// First Modify in-contract state to avoid reentrancy attacks
             // Set escrow to funded
             self.escrow_funded.entry(escrow_id).write(true);
-            
-            // Use the OpenZeppelin ERC20 contract to transfer the fund from the caller address to the
-            // scrow contract.
+
+            // Use the OpenZeppelin ERC20 contract to transfer the fund from the caller address to
+            // the scrow contract.
             let token = IERC20Dispatcher { contract_address: token_address };
             token.transfer_from(caller_address, contract_address, amount);
             // Emit Escrow funded Event
@@ -227,12 +226,13 @@ mod EscrowContract {
         fn get_beneficiary(self: @ContractState) -> ContractAddress {
             self.benefeciary.read()
         }
-
     }
 
     #[external(v0)]
-    fn distribute_escrow_earnings(ref self: ContractState, escrow_id: u64, release_address: ContractAddress){
-        assert(self.escrow_exists.entry(escrow_id).read(), 'Escrow Contract is not valid');
+    fn distribute_escrow_earnings(
+        ref self: ContractState, escrow_id: u64, release_address: ContractAddress
+    ) {
+        assert(self.escrow_id.read() == escrow_id, 'Escrow Contract is not valid');
 
         let depositor_approved = self.depositor_approve.entry(self.depositor.read()).read();
         let arbiter_approved = self.arbiter_approve.entry(self.arbiter.read()).read();
@@ -252,12 +252,18 @@ mod EscrowContract {
         let depositor = self.depositor.read();
 
         // Transfer tokens
-        let transfer_result = token_contract.transfer_from(depositor, release_address, self.worth_of_asset.read());
+        let transfer_result = token_contract
+            .transfer_from(depositor, release_address, self.worth_of_asset.read());
         assert(transfer_result, 'Token transfer failed');
 
         // Update balance after successful transfer
         self.balance.write(0);
 
-        self.emit(EscrowEarningsDistributed {escrow_id, release_address, amount: self.worth_of_asset.read()});
+        self
+            .emit(
+                EscrowEarningsDistributed {
+                    escrow_id, release_address, amount: self.worth_of_asset.read()
+                }
+            );
     }
 }
