@@ -62,7 +62,7 @@ mod EscrowContract {
         amount: u256,
         timestamp: u64,
     }
-    
+
 
     #[derive(Drop, starknet::Event)]
     pub struct EscrowFunded {
@@ -232,7 +232,7 @@ mod EscrowContract {
 
     #[external(v0)]
     fn distribute_escrow_earnings(ref self: ContractState, escrow_id: u64, release_address: ContractAddress){
-        assert(escrow_id == self.escrow_id.read(), 'Escrow Contract is not valid');
+        assert(self.escrow_exists.entry(escrow_id).read(), 'Escrow Contract is not valid');
 
         let depositor_approved = self.depositor_approve.entry(self.depositor.read()).read();
         let arbiter_approved = self.arbiter_approve.entry(self.arbiter.read()).read();
@@ -257,5 +257,7 @@ mod EscrowContract {
 
         // Update balance after successful transfer
         self.balance.write(0);
+
+        self.emit(EscrowEarningsDistributed {escrow_id, release_address, amount: self.worth_of_asset.read()});
     }
 }
