@@ -188,4 +188,33 @@ mod EscrowContract {
         }
 
     }
+
+    #[external(v0)]
+    fn distribute_escrow_earnings(ref self: ContractState, escrow_id: u64, release_address: ContractAddress){
+        assert(escrow_id == self.escrow_id.read(), 'Escrow Contract is not valid');
+
+        let depositor_approved = self.depositor_approve.entry(self.depositor.read()).read();
+        let arbiter_approved = self.arbiter_approve.entry(self.arbiter.read()).read();
+        // Verify both approvals
+        assert(depositor_approved && arbiter_approved, 'Escrow not approved');
+
+        //Verify token validity
+        let token_address = self.token_address.read();
+        assert(!token_address.is_zero(), 'Invalid token address');
+
+        //Verify if funds were already distributed or there is enough balance
+        assert(self.balance.read() > 0, 'Funds already distributed');
+        assert(self.balance.read() >= self.worth_of_asset.read(), 'Insufficient funds');
+
+        // Create token dispatcher
+        let token_contract = IERC20Dispatcher { contract_address: token_address };
+        let depositor = self.depositor.read();
+
+        // Transfer tokens
+        let transfer_result = token_contract.transfer_from(depositor, release_address, self.worth_of_asset.read());
+        assert(transfer_result, 'Token transfer failed');
+
+        // Update balance after successful transfer
+        self.balance.write(0);
+    }
 }
