@@ -54,13 +54,14 @@ fn test_setup() {
 #[test]
 fn test_initialize_escrow() {
     let contract_address = __setup__();
+    println!("Deployed address: {:?}", contract_address);
 
     let escrow_contract_dispatcher = IEscrowDispatcher { contract_address };
     let mut spy = spy_events();
 
     // setup test data
     let escrow_id: u64 = 7;
-    let benefeciary_address = starknet::contract_address_const::<0x123>();
+    let benefeciary_address = BENEFICIARY();
     let provider_address = starknet::contract_address_const::<0x124>();
     let amount: u256 = 250;
 
@@ -77,4 +78,3 @@ fn test_initialize_escrow() {
 
     stop_cheat_caller_address(contract_address);
 }
-

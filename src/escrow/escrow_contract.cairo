@@ -15,7 +15,7 @@ mod EscrowContract {
     struct Storage {
         escrow_id: u64,
         depositor: ContractAddress,
-        benefeciary: ContractAddress,
+        beneficiary: ContractAddress,
         arbiter: ContractAddress,
         token_address: ContractAddress,
         time_frame: u64,
@@ -25,6 +25,7 @@ mod EscrowContract {
         arbiter_approve: Map::<ContractAddress, bool>,
         escrow_exists: Map::<u64, bool>,
         escrow_amounts: Map::<u64, u256>,
+        deposit_time: Map::<u64, u64>,
         // Track the funded escrows. Start as false and is setted to true when successfully funds.
         escrow_funded: Map::<u64, bool>,
     }
@@ -34,14 +35,19 @@ mod EscrowContract {
     pub enum Event {
         ApproveTransaction: ApproveTransaction,
         EscrowEarningsDistributed: EscrowEarningsDistributed,
+        DepositorApproved: DepositorApproved,
+        ArbiterApproved: ArbiterApproved,
+
         EscrowInitialized: EscrowInitialized,
-        EscrowFunded: EscrowFunded
+        EscrowFunded: EscrowFunded,
+        EscrowRefunded: EscrowRefunded,
+        FundsReleased: FundsReleased,
     }
 
     #[derive(Drop, starknet::Event)]
-    pub struct ApproveTransaction {
+    pub struct DepositorApproved {
         depositor: ContractAddress,
-        approval: bool,
+        escrow_id: u64,
         time_of_approval: u64,
     }
 
@@ -53,11 +59,27 @@ mod EscrowContract {
     }
 
     // New event for escrow initialization
+    pub struct ArbiterApproved {
+        arbiter: ContractAddress,
+        escrow_id: u64,
+        time_of_approval: u64,
+    }
+
+    // Event for escrow initialization
     #[derive(Drop, starknet::Event)]
     pub struct EscrowInitialized {
         escrow_id: u64,
         beneficiary: ContractAddress,
         provider: ContractAddress,
+        amount: u256,
+        timestamp: u64,
+    }
+
+
+    #[derive(Drop, starknet::Event)]
+    pub struct EscrowRefunded {
+        escrow_id: u64,
+        depositor: ContractAddress,
         amount: u256,
         timestamp: u64,
     }
@@ -70,29 +92,44 @@ mod EscrowContract {
         escrow_address: ContractAddress,
     }
 
+    #[derive(Drop, starknet::Event)]
+    pub struct RefundEscrow {
+        depositor: ContractAddress,
+        amount: u256,
+        escrow_address: ContractAddress,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct FundsReleased {
+        escrow_id: u64,
+        beneficiary: ContractAddress,
+        amount: u256,
+    }
+
     #[constructor]
     fn constructor(
         ref self: ContractState,
-        benefeciary: ContractAddress,
+        beneficiary: ContractAddress,
         depositor: ContractAddress,
         arbiter: ContractAddress,
     ) {
-        self.benefeciary.write(benefeciary);
+        self.beneficiary.write(beneficiary);
         self.depositor.write(depositor);
         self.arbiter.write(arbiter);
     }
 
-
     #[abi(embed_v0)]
     impl EscrowImpl of IEscrow<ContractState> {
-        fn get_escrow_details(ref self: ContractState) -> Escrow {
+    
+        fn get_escrow_details(ref self: ContractState, escrow_id: u64) -> Escrow {
             // Validate if the escrow exists
-            let depositor = self.depositor.read();
-            assert(!depositor.is_zero(), Errors::ESCROW_NOT_FOUND);
+            let exists = self.escrow_exists.read(escrow_id);
+            assert(exists, Errors::ESCROW_NOT_FOUND);
 
-            let client_address = self.benefeciary.read();
-            let provider_address = self.depositor.read();
-            let amount = self.worth_of_asset.read();
+            let client_address = self.client_address.read();
+            let provider_address = self.provider_address.read();
+            let amount = self.escrow_amounts.read(escrow_id);
+
             let balance = self.balance.read();
 
             let escrow = Escrow {
@@ -104,32 +141,97 @@ mod EscrowContract {
             return escrow;
         }
 
-
-        fn approve(ref self: ContractState, benefeciary: ContractAddress) {
+        fn refundTimer(ref self: ContractState, escrow_id: u64, refund_period: u64) {
             let caller = get_caller_address();
-            // check if the address is a depositor
-            let mut address = self.depositor.read();
-            // check if address exist
-            if address != 0.try_into().unwrap() {
-                // address type is a depositor
-                address = caller
-            }
-            // check if address is a benificary
-            address = self.benefeciary.read();
+            let depositor = self.depositor.read();
+            assert(caller == depositor, Errors::UNAUTHORIZED_CALLER);
 
-            if address != 0.try_into().unwrap() {
-                // address type is a beneficary
-                address = caller
-            }
-            // map address to true
-            self.depositor_approve.entry(address).write(true);
+            let exists = self.escrow_exists.read(escrow_id);
+            assert(exists, Errors::ESCROW_NOT_FOUND);
+
+            let approved = self.arbiter_approve.read(depositor);
+            assert(!approved, Errors::ALREADY_APPROVED);
+
+            let deposit_time = self.deposit_time.read(escrow_id);
+
+            let current_time = get_block_timestamp();
+            assert(current_time >= deposit_time + refund_period, Errors::TIMER_NOT_EXPIRED);
+
+            let amount = self.escrow_amounts.read(escrow_id);
+            assert(amount > 0, Errors::INVALID_AMOUNT);
+
+            let token_address = self.client_address.read();
+            let mut erc20_dispatcher = IERC20Dispatcher { contract_address: token_address };
+            erc20_dispatcher.transfer(depositor, amount);
+
+            self.balance.write(self.balance.read() - amount);
+            self.escrow_exists.write(escrow_id, false);
+            self.escrow_amounts.write(escrow_id, 0);
+
+            self
+                .emit(
+                    Event::EscrowRefunded(
+                        EscrowRefunded {
+                            escrow_id, depositor, amount, timestamp: get_block_timestamp(),
+                        }
+                    )
+                );
+        }
+
+        // Function for depositor to approve a specific escrow
+        fn depositor_approve(ref self: ContractState, escrow_id: u64) {
+            let caller = get_caller_address();
+            let depositor = self.depositor.read();
+
+            // Ensure only the depositor can call this function
+            assert(caller == depositor, Errors::UNAUTHORIZED_CALLER);
+
+            // Ensure the escrow exists
+            let exists = self.escrow_exists.read(escrow_id);
+            assert(exists, Errors::ESCROW_NOT_FOUND);
+
+            // Ensure the escrow is funded
+            let is_funded = self.escrow_funded.read(escrow_id);
+            assert(is_funded, Errors::ESCROW_NOT_FUNDED);
+
+            // Set approval
+            self.depositor_approve.write(depositor, true);
             let timestamp = get_block_timestamp();
 
             // Emit the event
             self
                 .emit(
-                    ApproveTransaction {
-                        depositor: address, approval: true, time_of_approval: timestamp,
+                    DepositorApproved {
+                        depositor: depositor, escrow_id: escrow_id, time_of_approval: timestamp,
+                    },
+                );
+        }
+
+        // Function for arbiter to approve a specific escrow
+        fn arbiter_approve(ref self: ContractState, escrow_id: u64) {
+            let caller = get_caller_address();
+            let arbiter = self.arbiter.read();
+
+            // Ensure only the arbiter can call this function
+            assert(caller == arbiter, Errors::UNAUTHORIZED_CALLER);
+
+            // Ensure the escrow exists
+            let exists = self.escrow_exists.read(escrow_id);
+            assert(exists, Errors::ESCROW_NOT_FOUND);
+
+            // Ensure the escrow is funded
+            let is_funded = self.escrow_funded.read(escrow_id);
+            assert(is_funded, Errors::ESCROW_NOT_FUNDED);
+
+            // Set approval
+            self.arbiter_approve.write(arbiter, true);
+            let timestamp = get_block_timestamp();
+
+            // Emit the event
+            self
+                .emit(
+                    ArbiterApproved {
+                        arbiter: arbiter, escrow_id: escrow_id, time_of_approval: timestamp,
                     },
                 );
         }
@@ -140,7 +242,6 @@ mod EscrowContract {
         /// * beneficiary - Address of the beneficiary
         /// * provider_address - Address of the service provider
         /// * amount - Amount to be held in escrow
-
         fn initialize_escrow(
             ref self: ContractState,
             escrow_id: u64,
@@ -174,6 +275,10 @@ mod EscrowContract {
             self.escrow_exists.write(escrow_id, true);
             self.escrow_amounts.write(escrow_id, amount);
             self.worth_of_asset.write(amount);
+            self.beneficiary.write(beneficiary);
+            self.provider_address.write(provider_address);
+            // Initialize funded status as false
+            self.escrow_funded.write(escrow_id, false);
 
             // Emit initialization event
             self
@@ -193,30 +298,80 @@ mod EscrowContract {
         fn fund_escrow(
             ref self: ContractState, escrow_id: u64, amount: u256, token_address: ContractAddress,
         ) {
-            // check if escrow exists
-            assert(self.escrow_exists.entry(escrow_id).read(), 'Escrow not exists.');
-            // seting needed variables
+            // Check if escrow exists
+            assert(self.escrow_exists.read(escrow_id), 'Escrow does not exist.');
+
+            // Setting needed variables
             let depositor = self.depositor.read();
             let caller_address = get_caller_address();
             let contract_address = get_contract_address();
-            let expected_amount = self.escrow_amounts.entry(escrow_id).read();
-            // Make an assert the check if the caller address is the same as the depositor address.
+            let expected_amount = self.escrow_amounts.read(escrow_id);
+
+            // Make an assert to check if the caller address is the same as the depositor address.
             assert(depositor == caller_address, 'Only depositor can fund.');
-            // Check that the correct amount was sended.
+
+            // Check that the correct amount was sent.
             assert(amount >= expected_amount, 'Amount is less than expected');
 
-            //// First Modify in-contract state to avoid reentrancy attacks
-            // Set escrow to funded
-            self.escrow_funded.entry(escrow_id).write(true);
 
-            // Use the OpenZeppelin ERC20 contract to transfer the fund from the caller address to
-            // the scrow contract.
+            // First modify in-contract state to avoid reentrancy attacks
+            // Set escrow to funded
+            self.escrow_funded.write(escrow_id, true);
+
+            // Update contract balance
+            let current_balance = self.balance.read();
+            self.balance.write(current_balance + amount);
+
+            // Use the OpenZeppelin ERC20 contract to transfer the funds from the caller address to
+            // the escrow contract.
+
             let token = IERC20Dispatcher { contract_address: token_address };
             token.transfer_from(caller_address, contract_address, amount);
+
             // Emit Escrow funded Event
             self.emit(EscrowFunded { depositor, amount, escrow_address: contract_address });
         }
 
+        fn release_funds(ref self: ContractState, escrow_id: u64, token_address: ContractAddress) {
+            let depositor = self.depositor.read();
+            let arbiter = self.arbiter.read();
+            let beneficiary = self.beneficiary.read();
+            let contract_address = get_contract_address();
+
+            // Ensure the escrow exists
+            let exists = self.escrow_exists.read(escrow_id);
+            assert(exists, Errors::ESCROW_NOT_FOUND);
+
+            // Ensure the escrow is funded
+            let is_funded = self.escrow_funded.read(escrow_id);
+            assert(is_funded, Errors::ESCROW_NOT_FUNDED);
+
+            // Ensure both depositor and arbiter have approved
+            let depositor_approved = self.depositor_approve.read(depositor);
+            let arbiter_approved = self.arbiter_approve.read(arbiter);
+            assert(depositor_approved, Errors::DEPOSITOR_NOT_APPROVED);
+            assert(arbiter_approved, Errors::ARBITER_NOT_APPROVED);
+
+            // Get the escrow amount
+            let amount = self.escrow_amounts.read(escrow_id);
+            let current_balance = self.balance.read();
+            assert(current_balance >= amount, Errors::INSUFFICIENT_BALANCE);
+
+            // Deduct from contract balance and mark escrow as completed
+            self.balance.write(current_balance - amount);
+            self.escrow_funded.write(escrow_id, false);
+            self.escrow_exists.write(escrow_id, false);
+
+            // Get the ERC-20 token and transfer from contract to beneficiary
+            let token = IERC20Dispatcher { contract_address: token_address };
+
+            // The escrow contract calls `transfer` (not transfer_from) to send funds to the
+            // beneficiary since the tokens are already in the contract
+            token.transfer(beneficiary, amount);
+
+            // Emit the funds released event
+            self.emit(FundsReleased { escrow_id, beneficiary, amount });
+        }
 
         fn get_depositor(self: @ContractState) -> ContractAddress {
             self.depositor.read()
@@ -224,7 +379,23 @@ mod EscrowContract {
 
 
         fn get_beneficiary(self: @ContractState) -> ContractAddress {
-            self.benefeciary.read()
+            self.beneficiary.read()
+        }
+
+        fn get_arbiter(self: @ContractState) -> ContractAddress {
+            self.arbiter.read()
+        }
+
+        fn is_escrow_funded(self: @ContractState, escrow_id: u64) -> bool {
+            self.escrow_funded.read(escrow_id)
+        }
+
+        fn check_approvals(self: @ContractState, escrow_id: u64) -> (bool, bool) {
+            let depositor = self.depositor.read();
+            let arbiter = self.arbiter.read();
+            let depositor_approved = self.depositor_approve.read(depositor);
+            let arbiter_approved = self.arbiter_approve.read(arbiter);
+            (depositor_approved, arbiter_approved)
         }
     }
 
