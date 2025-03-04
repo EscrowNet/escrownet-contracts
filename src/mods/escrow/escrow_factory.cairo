@@ -14,6 +14,7 @@ pub trait IEscrowFactory<TContractState> {
     ) -> ContractAddress;
 
     fn get_escrow_contracts(ref self: TContractState) -> Array<ContractAddress>;
+    fn get_escrow_id(ref self: TContractState) -> u64;
 }
 
 
@@ -74,6 +75,10 @@ pub mod EscrowFactory {
             };
 
             escrow_addresses
+        }
+
+        fn get_escrow_id (ref self: ComponentState<TContractState>) -> u64 {
+            self.escrow_count.read()
         }
     }
 }

@@ -87,3 +87,46 @@ fn test_initialize_escrow() {
 
     stop_cheat_caller_address(contract_address);
 }
+
+
+
+//  #[test]
+//  fn test_fund_funds() {
+//      let contract_address = __setup__();
+//     //  let escrow_factory_contract = IEscrowFactoryDispatcher { contract_address };
+//     //  let escrows = escrow_factory_contract.get_escrow_contracts();
+//      let escrow_contract_dispatcher = IEscrowDispatcher { contract_address: contract_address };
+    
+
+//      // Test data
+//      let beneficiary_address = escrow_contract_dispatcher.get_beneficiary();
+//      let provider_address = escrow_contract_dispatcher.get_provider_address();
+//      let amount: u256 = 250;
+//      let token_address = escrow_contract_dispatcher.token_address();
+//      let depositor = escrow_contract_dispatcher.get_depositor();
+//      let arbiter = escrow_contract_dispatcher.get_arbiter();
+//      let salt = SALT;
+
+//      // Deploy the escrow contract
+//      start_cheat_caller_address(contract_address, beneficiary_address);
+//      let escrow_factory = IEscrowFactoryDispatcher { contract_address };
+//      escrow_factory.deploy_escrow(beneficiary_address, depositor, arbiter, salt);
+//      let escrow_id = escrow_factory.get_escrow_id();
+//      escrow_contract_dispatcher.get_escrow_exists(escrow_id);
+//      stop_cheat_caller_address(contract_address);
+
+//      // Retrieve the deployed escrow address
+    
+//      // Assuming the first entry is the new escrow
+
+//       //Proceed with initializing and funding the escrow
+//      start_cheat_caller_address(contract_address, depositor);
+//      escrow_contract_dispatcher.initialize_escrow(escrow_id, beneficiary_address, provider_address, amount);
+//       let escrow_data = escrow_contract_dispatcher.get_escrow_details(escrow_id);
+//      stop_cheat_caller_address(contract_address);
+
+//      start_cheat_caller_address(contract_address, depositor);
+//      escrow_contract_dispatcher.fund_escrow(7, amount, token_address);
+//      stop_cheat_caller_address(contract_address);
+//  }
+

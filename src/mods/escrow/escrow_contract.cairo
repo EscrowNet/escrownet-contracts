@@ -5,7 +5,8 @@ mod EscrowContract {
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess, StoragePathEntry};
     use starknet::get_block_timestamp;
     use core::starknet::{get_caller_address, get_contract_address};
-    use crate::mods::{types::Escrow, errors::Errors};
+    use crate::mods::{ errors::Errors};
+    use crate::mods::types::Escrow;
     use crate::mods::interface::iescrow::{IEscrow};
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 
@@ -79,7 +80,7 @@ mod EscrowContract {
 
     #[abi(embed_v0)]
     impl EscrowImpl of IEscrow<ContractState> {
-        fn get_escrow_details(ref self: ContractState, escrow_id: u256) -> Escrow {
+        fn get_escrow_details(ref self: ContractState, escrow_id: u64) -> Escrow {
             // Validate if the escrow exists
             let depositor = self.depositor.read();
             assert(!depositor.is_zero(), Errors::ESCROW_NOT_FOUND);
@@ -222,6 +223,18 @@ mod EscrowContract {
 
         fn get_escrow_exists(self: @ContractState, escrow_id: u64) -> bool {
             self.escrow_exists.read(escrow_id)
+        }
+
+        fn get_provider_address(self: @ContractState) -> ContractAddress {
+            self.provider_address.read()
+        }   
+
+        fn get_arbiter(self: @ContractState) -> ContractAddress {
+            self.arbiter.read()
+        }
+
+        fn token_address(self: @ContractState) -> ContractAddress {
+            self.erc20.read()
         }
 
 
