@@ -23,9 +23,6 @@ pub mod Token {
     }
 
 
-
-    
-
     #[event]
     #[derive(Drop, starknet::Event)]
     pub enum Event {
