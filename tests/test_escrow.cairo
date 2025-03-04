@@ -1,4 +1,5 @@
-use escrownet_contract::interface::iescrow::IEscrowDispatcherTrait;
+use escrownet_contract::mods::escrow::escrow_factory::IEscrowFactoryDispatcherTrait;
+use escrownet_contract::mods::interface::iescrow::IEscrowDispatcherTrait;
 use starknet::ContractAddress;
 
 use snforge_std::{
@@ -6,8 +7,11 @@ use snforge_std::{
     stop_cheat_caller_address, start_cheat_block_timestamp, stop_cheat_block_timestamp, spy_events,
     EventSpyAssertionsTrait,
 };
-use escrownet_contract::interface::iescrow::{IEscrowDispatcher};
-use escrownet_contract::escrow::errors::Errors;
+use escrownet_contract::mods::interface::iescrow::{IEscrowDispatcher};
+use escrownet_contract::mods::errors::Errors;
+use escrownet_contract::mods::escrow::escrow_factory::EscrowFactory;
+use escrownet_contract::mods::escrow::escrow_factory::{IEscrowFactoryDispatcher};
+
 
 fn BENEFICIARY() -> ContractAddress {
     'benefeciary'.try_into().unwrap()
@@ -20,6 +24,12 @@ fn DEPOSITOR() -> ContractAddress {
 fn ARBITER() -> ContractAddress {
     'arbiter'.try_into().unwrap()
 }
+
+fn TOKEN() -> ContractAddress {
+    'token'.try_into().unwrap()
+}
+
+const SALT: felt252 = 'salt';
 
 // *************************************************************************
 //                              SETUP
@@ -56,7 +66,7 @@ fn test_initialize_escrow() {
     let contract_address = __setup__();
 
     let escrow_contract_dispatcher = IEscrowDispatcher { contract_address };
-    let mut spy = spy_events();
+    let mut _spy = spy_events();
 
     // setup test data
     let escrow_id: u64 = 7;
@@ -77,4 +87,3 @@ fn test_initialize_escrow() {
 
     stop_cheat_caller_address(contract_address);
 }
-

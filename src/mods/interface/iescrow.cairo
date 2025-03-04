@@ -1,5 +1,5 @@
 use starknet::ContractAddress;
-use crate::escrow::types::Escrow;
+use crate::mods::types::Escrow;
 
 #[starknet::interface]
 pub trait IEscrow<TContractState> {
@@ -17,4 +17,10 @@ pub trait IEscrow<TContractState> {
     fn fund_escrow(
         ref self: TContractState, escrow_id: u64, amount: u256, token_address: ContractAddress,
     );
+
+    fn get_escrow_exists(self: @TContractState, escrow_id: u64) -> bool;
+
+    // Token set up 
+
+    fn set_erc20(ref self: TContractState, address: ContractAddress);
 }

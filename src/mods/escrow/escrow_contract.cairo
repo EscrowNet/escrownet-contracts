@@ -5,8 +5,8 @@ mod EscrowContract {
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess, StoragePathEntry};
     use starknet::get_block_timestamp;
     use core::starknet::{get_caller_address, get_contract_address};
-    use crate::escrow::{types::Escrow, errors::Errors};
-    use crate::interface::iescrow::{IEscrow};
+    use crate::mods::{types::Escrow, errors::Errors};
+    use crate::mods::interface::iescrow::{IEscrow};
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 
     #[storage]
@@ -27,6 +27,9 @@ mod EscrowContract {
         escrow_amounts: Map::<u64, u256>,
         // Track the funded escrows. Start as false and is setted to true when successfully funds.
         escrow_funded: Map::<u64, bool>,
+
+        owner: ContractAddress,
+        erc20: ContractAddress,
     }
 
     #[event]
@@ -186,7 +189,7 @@ mod EscrowContract {
         ) {
             // check if escrow exists
             assert(self.escrow_exists.entry(escrow_id).read(), 'Escrow not exists.');
-            // seting needed variables
+            // setting needed variables
             let depositor = self.depositor.read();
             let caller_address = get_caller_address();
             let contract_address = get_contract_address();
@@ -215,6 +218,17 @@ mod EscrowContract {
 
         fn get_beneficiary(self: @ContractState) -> ContractAddress {
             self.benefeciary.read()
+        }
+
+        fn get_escrow_exists(self: @ContractState, escrow_id: u64) -> bool {
+            self.escrow_exists.read(escrow_id)
+        }
+
+
+        fn set_erc20(ref self: ContractState, address: ContractAddress) {
+            assert(get_caller_address() == self.owner.read(), Errors::UNAUTHORIZED_CALLER);
+            assert(address.is_non_zero(), Errors::INVALID_ADDRESSES);
+            self.erc20.write(address);
         }
     }
 }
