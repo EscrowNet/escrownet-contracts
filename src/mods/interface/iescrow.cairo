@@ -20,7 +20,7 @@ pub trait IEscrow<TContractState> {
 
     fn get_escrow_exists(self: @TContractState, escrow_id: u64) -> bool;
 
-    // Token set up 
+    // Token set up
 
     fn set_erc20(ref self: TContractState, address: ContractAddress);
 }

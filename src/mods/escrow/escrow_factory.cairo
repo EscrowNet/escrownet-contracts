@@ -16,6 +16,7 @@ pub trait IEscrowFactory<TContractState> {
     fn get_escrow_contracts(ref self: TContractState) -> Array<ContractAddress>;
 }
 
+
 #[starknet::component]
 pub mod EscrowFactory {
     use super::IEscrowFactory;
@@ -37,7 +38,7 @@ pub mod EscrowFactory {
     impl EscrowFactoryImpl<
         TContractState, +HasComponent<TContractState>,
     > of IEscrowFactory<ComponentState<TContractState>> {
-         fn deploy_escrow(
+        fn deploy_escrow(
             ref self: ComponentState<TContractState>,
             beneficiary: ContractAddress,
             depositor: ContractAddress,
