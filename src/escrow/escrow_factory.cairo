@@ -13,7 +13,7 @@ pub trait IEscrowFactory<TContractState> {
         salt: felt252,
     ) -> ContractAddress;
 
-    fn get_escrow_contracts(ref self: TContractState) -> Array<ContractAddress>;
+    fn get_escrow_contracts(self: @TContractState) -> Array<ContractAddress>;
 }
 
 #[starknet::component]
@@ -25,7 +25,7 @@ pub mod EscrowFactory {
     };
     use core::traits::{TryInto, Into};
 
-    const ESCROW_CONTRACT_CLASS_HASH: felt252 = 0x123;
+    const ESCROW_CONTRACT_CLASS_HASH: felt252 = 0x7df01639865aa375e6c7d9fb1ce5bbc3cbc404ac10984d5f3d76edfe6db3933;
 
     #[storage]
     struct Storage {
@@ -63,7 +63,7 @@ pub mod EscrowFactory {
         }
 
         fn get_escrow_contracts(
-            ref self: ComponentState<TContractState>,
+            self: @ComponentState<TContractState>,
         ) -> Array<ContractAddress> {
             let escrow_count = self.escrow_count.read();
             let mut escrow_addresses: Array<ContractAddress> = array![];
