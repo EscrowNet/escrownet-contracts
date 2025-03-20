@@ -1,12 +1,9 @@
 #[starknet::interface]
-pub trait IEscrownet<TContractState> {
-   
-}
+pub trait IEscrownet<TContractState> {}
 
 
 #[starknet::contract]
 pub mod Escrownet {
-
     use super::{IEscrownet};
     use escrownet_contract::escrow::escrow_factory::EscrowFactory;
 
@@ -31,8 +28,5 @@ pub mod Escrownet {
 
 
     #[abi(embed_v0)]
-    impl EscrownetImpl of IEscrownet<ContractState> {
-
-    }
-
+    impl EscrownetImpl of IEscrownet<ContractState> {}
 }
