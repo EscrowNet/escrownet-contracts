@@ -5,7 +5,7 @@ mod EscrowContract {
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess, StoragePathEntry};
     use starknet::get_block_timestamp;
     use core::starknet::{get_caller_address, get_contract_address};
-    use crate::escrow::{types::Escrow, errors::Errors};
+    use crate::escrow::{types::Escrow, types::Milestone, errors::Errors};
     use crate::interface::iescrow::{IEscrow};
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 
@@ -28,7 +28,11 @@ mod EscrowContract {
         deposit_time: Map::<u64, u64>,
         // Track the funded escrows. Start as false and is setted to true when successfully funds.
         escrow_funded: Map::<u64, bool>,
+        milestone_count: u64,
+        // mapping to track milestones
+        milestones: Map::<u64, Milestone>,
     }
+
 
     #[event]
     #[derive(Drop, starknet::Event)]
@@ -280,6 +284,48 @@ mod EscrowContract {
                         },
                     ),
                 );
+        }
+
+        // add milestone for escrows to help in tracking
+        fn add_milestone(
+            ref self: ContractState, description: ByteArray, amount: u256, dueDate: u256,
+        ) {
+            assert(amount > 0, 'amount too low');
+            let milestone_id: u64 = self.milestone_count.read() + 1;
+
+            let milestone: Milestone = Milestone {
+                id: milestone_id,
+                description: description,
+                amount: amount,
+                dueDate: dueDate,
+                isCompleted: false,
+                isApprovedDepositor: false,
+                isApprovedBeneficiary: false,
+                isPaid: false
+            };
+
+            self.milestones.write(milestone_id, milestone)
+        }
+
+        fn request_milestone_payment(
+            ref self: ContractState, id: u64, token_address: ContractAddress
+        ) -> bool {
+            let mut milestone: Milestone = self.milestones.read(id);
+
+            assert(!milestone.isPaid, 'Milestone has been paid');
+            assert(milestone.isApprovedBeneficiary, 'Milestone must be approved');
+            assert(milestone.isApprovedDepositor, 'Milestone must be approved');
+            assert(milestone.isCompleted, 'Milestone must be completed');
+
+            let milestone_amount = milestone.amount;
+
+            let token = IERC20Dispatcher { contract_address: token_address };
+            let caller_address = get_caller_address();
+            milestone.isPaid = true;
+
+            token.transfer(caller_address, milestone_amount);
+
+            return true;
         }
 
         fn fund_escrow(
