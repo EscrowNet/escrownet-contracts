@@ -5,7 +5,7 @@ mod EscrowContract {
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess, StoragePathEntry};
     use starknet::get_block_timestamp;
     use core::starknet::{get_caller_address, get_contract_address};
-    use crate::escrow::{types::Escrow, errors::Errors};
+    use crate::escrow::{types::Escrow, types::Milestone ,errors::Errors};
     use crate::interface::iescrow::{IEscrow};
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 
@@ -28,20 +28,11 @@ mod EscrowContract {
         deposit_time: Map::<u64, u64>,
         // Track the funded escrows. Start as false and is setted to true when successfully funds.
         escrow_funded: Map::<u64, bool>,
-        milestone_count: u256, 
+        milestone_count: u64, 
         // mapping to track milestones
-        milestones: Map::<ContractAddress, Milestone>,
+        milestones: Map::<u64, Milestone>,
     }
 
-    #[derive(Drop)]
-    struct Milestone {
-        id: u256,
-        description: ByteArray,
-        amount: u256,
-        dueDate: u256,
-        isCompleted: bool,
-        isApproved: bool
-    }
 
     #[event]
     #[derive(Drop, starknet::Event)]
@@ -293,6 +284,30 @@ mod EscrowContract {
                         },
                     ),
                 );
+        }
+
+        // add milestone for escrows to help in tracking
+        fn add_milestone(
+            ref self: ContractState,
+            description: ByteArray,
+            amount: u256,
+            dueDate: u256, 
+        ) {
+
+            assert(amount > 0, 'amount too low');
+            let milestone_id: u64 = self.milestone_count.read() + 1;
+
+
+            let milestone: Milestone = Milestone {
+                id: milestone_id,
+                description: description,
+                amount: amount,
+                dueDate: dueDate,
+                isCompleted: false,
+                isApproved: false
+            };
+
+            self.milestones.write(milestone_id, milestone)
         }
 
         fn fund_escrow(

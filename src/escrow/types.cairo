@@ -8,6 +8,16 @@ pub struct Escrow {
     pub balance: u256,
 }
 
+#[derive(Drop, Serde, starknet::Store)]
+pub struct Milestone {
+    pub id: u64,
+    pub description: ByteArray,
+    pub amount: u256,
+    pub dueDate: u256,
+    pub isCompleted: bool,
+    pub isApproved: bool
+}
+
 #[starknet::interface]
 pub trait IEscrow<TContractState> {
     fn get_escrow(self: @TContractState, escrow_id: u256) -> Escrow;
