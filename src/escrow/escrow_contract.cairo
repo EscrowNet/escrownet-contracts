@@ -304,10 +304,30 @@ mod EscrowContract {
                 amount: amount,
                 dueDate: dueDate,
                 isCompleted: false,
-                isApproved: false
+                isApproved: false,
+                isPaid: false
             };
 
             self.milestones.write(milestone_id, milestone)
+        }
+
+        fn request_milestone_payment(ref self: ContractState, id: u64, token_address: ContractAddress) -> bool {
+            let mut milestone: Milestone = self.milestones.read(id);
+
+            assert(!milestone.isPaid, 'Milestone has been paid');
+            assert(milestone.isApproved, 'Milestone must be approved');
+            assert(milestone.isCompleted, 'Milestone must be completed');
+
+            let milestone_amount = milestone.amount;
+
+            let token = IERC20Dispatcher { contract_address: token_address };
+            let caller_address = get_caller_address();
+            milestone.isPaid = true;
+
+            token.transfer(caller_address, milestone_amount);
+
+            return true;
+
         }
 
         fn fund_escrow(
