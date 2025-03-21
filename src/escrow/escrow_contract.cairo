@@ -28,6 +28,19 @@ mod EscrowContract {
         deposit_time: Map::<u64, u64>,
         // Track the funded escrows. Start as false and is setted to true when successfully funds.
         escrow_funded: Map::<u64, bool>,
+        milestone_count: u256, 
+        // mapping to track milestones
+        milestones: Map::<ContractAddress, Milestone>,
+    }
+
+    #[derive(Drop)]
+    struct Milestone {
+        id: u256,
+        description: ByteArray,
+        amount: u256,
+        dueDate: u256,
+        isCompleted: bool,
+        isApproved: bool
     }
 
     #[event]
