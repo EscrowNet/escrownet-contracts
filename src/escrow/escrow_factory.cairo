@@ -2,6 +2,7 @@
 pub use starknet::{
     ContractAddress, class_hash::ClassHash, syscalls::deploy_syscall, SyscallResultTrait,
 };
+use escrownet_contract::interface::iescrow::{IEscrowDispatcher, IEscrowDispatcherTrait};
 
 #[starknet::interface]
 pub trait IEscrowFactory<TContractState> {
@@ -11,6 +12,9 @@ pub trait IEscrowFactory<TContractState> {
         depositor: ContractAddress,
         arbiter: ContractAddress,
         salt: felt252,
+        milestone_description: ByteArray,
+        milestone_amount: u256,
+        milestone_dueDate: u256,
     ) -> ContractAddress;
 
     fn get_escrow_contracts(self: @TContractState) -> Array<ContractAddress>;
@@ -18,7 +22,9 @@ pub trait IEscrowFactory<TContractState> {
 
 #[starknet::component]
 pub mod EscrowFactory {
-    use super::IEscrowFactory;
+    use super::IEscrowDispatcherTrait;
+use super::IEscrowDispatcher;
+use super::IEscrowFactory;
     use starknet::{
         ContractAddress, class_hash::ClassHash, syscalls::deploy_syscall, SyscallResultTrait,
         storage::{Map},
@@ -44,6 +50,9 @@ pub mod EscrowFactory {
             depositor: ContractAddress,
             arbiter: ContractAddress,
             salt: felt252,
+            milestone_description: ByteArray,
+            milestone_amount: u256,
+            milestone_dueDate: u256,
         ) -> ContractAddress {
             let escrow_id = self.escrow_count.read() + 1;
 
@@ -59,6 +68,15 @@ pub mod EscrowFactory {
             // Update storage with the new Escrow instance
             self.escrow_addresses.write(escrow_id, escrow_address);
             self.escrow_count.write(escrow_id);
+
+            // Initialize milestone for every deployed escrow
+            let escrow_contract = IEscrowDispatcher { contract_address: escrow_address };
+
+            escrow_contract.add_milestone(
+                description: milestone_description,
+                amount: milestone_amount,
+                dueDate: milestone_dueDate
+            );
 
             escrow_address
         }
