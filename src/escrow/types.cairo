@@ -15,7 +15,8 @@ pub struct Milestone {
     pub amount: u256,
     pub dueDate: u256,
     pub isCompleted: bool,
-    pub isApproved: bool,
+    pub isApprovedDepositor: bool,
+    pub isApprovedBeneficiary: bool,
     pub isPaid: bool,
 }
 

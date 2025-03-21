@@ -299,7 +299,8 @@ mod EscrowContract {
                 amount: amount,
                 dueDate: dueDate,
                 isCompleted: false,
-                isApproved: false,
+                isApprovedDepositor: false,
+                isApprovedBeneficiary: false,
                 isPaid: false
             };
 
@@ -312,7 +313,8 @@ mod EscrowContract {
             let mut milestone: Milestone = self.milestones.read(id);
 
             assert(!milestone.isPaid, 'Milestone has been paid');
-            assert(milestone.isApproved, 'Milestone must be approved');
+            assert(milestone.isApprovedBeneficiary, 'Milestone must be approved');
+            assert(milestone.isApprovedDepositor, 'Milestone must be approved');
             assert(milestone.isCompleted, 'Milestone must be completed');
 
             let milestone_amount = milestone.amount;
