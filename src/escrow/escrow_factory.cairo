@@ -23,8 +23,8 @@ pub trait IEscrowFactory<TContractState> {
 #[starknet::component]
 pub mod EscrowFactory {
     use super::IEscrowDispatcherTrait;
-use super::IEscrowDispatcher;
-use super::IEscrowFactory;
+    use super::IEscrowDispatcher;
+    use super::IEscrowFactory;
     use starknet::{
         ContractAddress, class_hash::ClassHash, syscalls::deploy_syscall, SyscallResultTrait,
         storage::{Map},
@@ -72,11 +72,12 @@ use super::IEscrowFactory;
             // Initialize milestone for every deployed escrow
             let escrow_contract = IEscrowDispatcher { contract_address: escrow_address };
 
-            escrow_contract.add_milestone(
-                description: milestone_description,
-                amount: milestone_amount,
-                dueDate: milestone_dueDate
-            );
+            escrow_contract
+                .add_milestone(
+                    description: milestone_description,
+                    amount: milestone_amount,
+                    dueDate: milestone_dueDate
+                );
 
             escrow_address
         }

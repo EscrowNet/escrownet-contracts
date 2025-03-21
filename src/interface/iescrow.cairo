@@ -11,12 +11,11 @@ pub trait IEscrow<TContractState> {
         amount: u256,
     );
     fn add_milestone(
-        ref self: TContractState,
-        description: ByteArray,
-        amount: u256,
-        dueDate: u256, 
+        ref self: TContractState, description: ByteArray, amount: u256, dueDate: u256,
     );
-    fn request_milestone_payment(ref self: TContractState, id: u64, token_address: ContractAddress) -> bool;
+    fn request_milestone_payment(
+        ref self: TContractState, id: u64, token_address: ContractAddress
+    ) -> bool;
     fn get_escrow_details(ref self: TContractState, escrow_id: u64) -> Escrow;
     fn get_depositor(self: @TContractState) -> ContractAddress;
     fn get_beneficiary(self: @TContractState) -> ContractAddress;
