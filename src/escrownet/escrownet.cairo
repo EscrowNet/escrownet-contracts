@@ -13,7 +13,7 @@ pub mod Escrownet {
     #[event]
     #[derive(Drop, starknet::Event)]
     enum Event {
-        EscrowFactoryEvent: EscrowFactory::Event
+        EscrowFactoryEvent: EscrowFactory::Event,
     }
 
     #[storage]

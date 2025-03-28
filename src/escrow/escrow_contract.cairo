@@ -164,8 +164,8 @@ mod EscrowContract {
                     Event::EscrowRefunded(
                         EscrowRefunded {
                             escrow_id, depositor, amount, timestamp: get_block_timestamp(),
-                        }
-                    )
+                        },
+                    ),
                 );
         }
 
@@ -301,14 +301,14 @@ mod EscrowContract {
                 isCompleted: false,
                 isApprovedDepositor: false,
                 isApprovedBeneficiary: false,
-                isPaid: false
+                isPaid: false,
             };
 
             self.milestones.write(milestone_id, milestone)
         }
 
         fn request_milestone_payment(
-            ref self: ContractState, id: u64, token_address: ContractAddress
+            ref self: ContractState, id: u64, token_address: ContractAddress,
         ) -> bool {
             let mut milestone: Milestone = self.milestones.read(id);
 
