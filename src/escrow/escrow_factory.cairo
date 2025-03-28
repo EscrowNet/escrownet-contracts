@@ -3,22 +3,7 @@ pub use starknet::{
     ContractAddress, class_hash::ClassHash, syscalls::deploy_syscall, SyscallResultTrait,
 };
 use escrownet_contract::interface::iescrow::{IEscrowDispatcher, IEscrowDispatcherTrait};
-
-#[starknet::interface]
-pub trait IEscrowFactory<TContractState> {
-    fn deploy_escrow(
-        ref self: TContractState,
-        beneficiary: ContractAddress,
-        depositor: ContractAddress,
-        arbiter: ContractAddress,
-        salt: felt252,
-        milestone_description: ByteArray,
-        milestone_amount: u256,
-        milestone_dueDate: u256,
-    ) -> ContractAddress;
-
-    fn get_escrow_contracts(self: @TContractState) -> Array<ContractAddress>;
-}
+use escrownet_contract::interface::iescrowfactory;
 
 #[starknet::component]
 pub mod EscrowFactory {
@@ -29,6 +14,7 @@ pub mod EscrowFactory {
         ContractAddress, class_hash::ClassHash, syscalls::deploy_syscall, SyscallResultTrait,
         storage::{Map},
     };
+    
     use core::traits::{TryInto, Into};
 
     const ESCROW_CONTRACT_CLASS_HASH: felt252 =
@@ -43,7 +29,7 @@ pub mod EscrowFactory {
     #[embeddable_as(Escrows)]
     impl EscrowFactoryImpl<
         TContractState, +HasComponent<TContractState>,
-    > of IEscrowFactory<ComponentState<TContractState>> {
+        > of IEscrowFactory<ComponentState<TContractState>> {
         fn deploy_escrow(
             ref self: ComponentState<TContractState>,
             beneficiary: ContractAddress,
