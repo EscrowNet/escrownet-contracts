@@ -3,7 +3,7 @@ pub use starknet::{
     ContractAddress, class_hash::ClassHash, syscalls::deploy_syscall, SyscallResultTrait,
 };
 use escrownet_contract::interface::iescrow::{IEscrowDispatcher, IEscrowDispatcherTrait};
-use escrownet_contract::interface::iescrowfactory;
+use escrownet_contract::interface::iescrowfactory::{IEscrowFactory};
 
 #[starknet::component]
 pub mod EscrowFactory {
