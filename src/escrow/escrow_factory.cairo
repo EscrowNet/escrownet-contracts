@@ -14,7 +14,7 @@ pub mod EscrowFactory {
         ContractAddress, class_hash::ClassHash, syscalls::deploy_syscall, SyscallResultTrait,
         storage::{Map},
     };
-    
+
     use core::traits::{TryInto, Into};
 
     const ESCROW_CONTRACT_CLASS_HASH: felt252 =
@@ -29,7 +29,7 @@ pub mod EscrowFactory {
     #[embeddable_as(Escrows)]
     impl EscrowFactoryImpl<
         TContractState, +HasComponent<TContractState>,
-        > of IEscrowFactory<ComponentState<TContractState>> {
+    > of IEscrowFactory<ComponentState<TContractState>> {
         fn deploy_escrow(
             ref self: ComponentState<TContractState>,
             beneficiary: ContractAddress,
