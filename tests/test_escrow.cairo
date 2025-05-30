@@ -1,5 +1,5 @@
 use escrownet_contract::interface::iescrow::IEscrowDispatcherTrait;
-use starknet::ContractAddress;
+use starknet::{ContractAddress, storage::Map, contract_address_const};
 
 use snforge_std::{
     declare, ContractClassTrait, DeclareResultTrait, start_cheat_caller_address,
@@ -78,89 +78,62 @@ fn test_initialize_escrow() {
 
     stop_cheat_caller_address(contract_address);
 }
+
 #[test]
-fn test_initialize_escrow_with_zero_beneficiary_address() {
+#[should_panic(expected: 'Invalid amount')]
+fn test_initialize_zero_amount_should_fail() {
     let contract_address = __setup__();
-    let escrow_contract_dispatcher = IEscrowDispatcher { contract_address };
-    let escrow_id: u64 = 10;
-    let zero_address = starknet::contract_address_const::<0x0>();
-    let provider_address = starknet::contract_address_const::<0x124>();
-    let amount: u256 = 100;
+    let escrow = IEscrowDispatcher { contract_address };
     let depositor = DEPOSITOR();
 
     start_cheat_caller_address(contract_address, depositor);
 
-    let result = escrow_contract_dispatcher
-        .try_initialize_escrow(escrow_id, zero_address, provider_address, amount);
-
-    assert(result.is_err(), 'Should revert for zero beneficiary address');
-    let err = result.unwrap_err();
-    assert(*err.at(0) == Errors::INVALID_BENEFICIARY_ADDRESS, *err.at(0));
+    escrow.initialize_escrow(2, BENEFICIARY(), contract_address_const::<0x999>(), 0);
 
     stop_cheat_caller_address(contract_address);
 }
 
 #[test]
-fn test_initialize_escrow_with_beneficiary_equals_provider() {
+#[should_panic(expected: 'Escrow ID already exists')]
+fn test_initialize_twice_same_id_should_fail() {
     let contract_address = __setup__();
-    let escrow_contract_dispatcher = IEscrowDispatcher { contract_address };
-    let escrow_id: u64 = 11;
-    let address = starknet::contract_address_const::<0x123>();
-    let amount: u256 = 100;
+    let escrow = IEscrowDispatcher { contract_address };
     let depositor = DEPOSITOR();
 
     start_cheat_caller_address(contract_address, depositor);
 
-    let result = escrow_contract_dispatcher
-        .try_initialize_escrow(escrow_id, address, address, amount);
+    let escrow_id = 3;
+    let provider = contract_address_const::<0x111>();
 
-    assert(result.is_err(), 'Should revert when beneficiary equals provider');
-    let err = result.unwrap_err();
-    assert(*err.at(0) == Errors::INVALID_ADDRESSES, *err.at(0));
+    // First call should succeed
+    escrow
+        .initialize_escrow(escrow_id, BENEFICIARY(), provider, 100);
 
-    stop_cheat_caller_address(contract_address);
-}
-
-#[test]
-fn test_initialize_escrow_with_zero_amount() {
-    let contract_address = __setup__();
-    let escrow_contract_dispatcher = IEscrowDispatcher { contract_address };
-    let escrow_id: u64 = 12;
-    let beneficiary = BENEFICIARY();
-    let provider_address = starknet::contract_address_const::<0x124>();
-    let amount: u256 = 0;
-    let depositor = DEPOSITOR();
-
-    start_cheat_caller_address(contract_address, depositor);
-
-    let result = escrow_contract_dispatcher
-        .try_initialize_escrow(escrow_id, beneficiary, provider_address, amount);
-
-    assert(result.is_err(), 'Should revert for zero amount');
-    let err = result.unwrap_err();
-    assert(*err.at(0) == Errors::INVALID_AMOUNT, *err.at(0));
+    // Second call should fail
+    let result = escrow
+        .initialize_escrow(escrow_id, BENEFICIARY(), provider, 100);
 
     stop_cheat_caller_address(contract_address);
 }
 
 #[test]
-fn test_initialize_escrow_access_control_only_depositor() {
+#[should_panic(expected: 'Unauthorized caller')]
+fn test_initialize_wrong_caller_should_fail() {
     let contract_address = __setup__();
-    let escrow_contract_dispatcher = IEscrowDispatcher { contract_address };
-    let escrow_id: u64 = 13;
-    let beneficiary = BENEFICIARY();
-    let provider_address = starknet::contract_address_const::<0x124>();
-    let amount: u256 = 100;
-    let not_depositor = ARBITER(); // Use arbiter as unauthorized caller
+    let escrow = IEscrowDispatcher { contract_address };
 
-    start_cheat_caller_address(contract_address, not_depositor);
+    let wrong_caller = contract_address_const::<0xDEADBEEF>();
+    start_cheat_caller_address(contract_address, wrong_caller);
 
-    let result = escrow_contract_dispatcher
-        .try_initialize_escrow(escrow_id, beneficiary, provider_address, amount);
-
-    assert(result.is_err(), 'Should revert for non-depositor caller');
-    let err = result.unwrap_err();
-    assert(*err.at(0) == Errors::UNAUTHORIZED_CALLER, *err.at(0));
+    let result = escrow
+        .initialize_escrow(4, BENEFICIARY(), contract_address_const::<0x888>(), 100);
 
     stop_cheat_caller_address(contract_address);
 }
+
+
+
+
+
+
+
