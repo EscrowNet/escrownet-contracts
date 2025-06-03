@@ -27,4 +27,6 @@ pub trait IEscrow<TContractState> {
     fn release_funds(ref self: TContractState, escrow_id: u64, token_address: ContractAddress);
     fn depositor_approve(ref self: TContractState, escrow_id: u64);
     fn arbiter_approve(ref self: TContractState, escrow_id: u64);
+    fn get_balance(self: @TContractState) -> u256;
+    fn get_escrow_amount(self: @TContractState, escrow_id: u64) -> u256;
 }

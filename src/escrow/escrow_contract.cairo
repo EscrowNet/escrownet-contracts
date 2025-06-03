@@ -420,6 +420,14 @@ pub mod EscrowContract {
             self.escrow_funded.read(escrow_id)
         }
 
+        fn get_balance(self: @ContractState) -> u256 {
+            self.balance.read()
+        }
+
+        fn get_escrow_amount(self: @ContractState, escrow_id: u64) -> u256 {
+            self.escrow_amounts.read(escrow_id)
+        }
+
         fn check_approvals(self: @ContractState, escrow_id: u64) -> (bool, bool) {
             let depositor = self.depositor.read();
             let arbiter = self.arbiter.read();
