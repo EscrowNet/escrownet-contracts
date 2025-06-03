@@ -252,3 +252,311 @@ fn test_fund_escrow_event_emission() {
             ]
         );
 }
+
+#[test]
+fn test_release_funds() {
+    let (contract_address, usdt_contract_address) = __setup__();
+    println!("Deployed address: {:?}", contract_address);
+
+    let escrow_contract_dispatcher = IEscrowDispatcher { contract_address };
+    let erc20_dispatcher = IERC20Dispatcher { contract_address: usdt_contract_address };
+
+    let escrow_id: u64 = 7;
+    let benefeciary_address = BENEFICIARY();
+    let provider_address = starknet::contract_address_const::<0x124>();
+    let amount: u256 = 250;
+
+    let depositor = DEPOSITOR();
+    let arbiter = ARBITER();
+
+    start_cheat_caller_address(contract_address, depositor);
+
+    escrow_contract_dispatcher
+        .initialize_escrow(escrow_id, benefeciary_address, provider_address, amount);
+
+    let escrow_data = escrow_contract_dispatcher.get_escrow_details(7);
+
+    assert(escrow_data.amount == amount, Errors::INVALID_AMOUNT);
+
+    stop_cheat_caller_address(contract_address);
+
+    start_cheat_caller_address(usdt_contract_address, depositor);
+    erc20_dispatcher.approve(contract_address, amount);
+    stop_cheat_caller_address(usdt_contract_address);
+
+    start_cheat_caller_address(contract_address, depositor);
+    escrow_contract_dispatcher.fund_escrow(escrow_id, amount, usdt_contract_address);
+
+    assert(
+        escrow_contract_dispatcher.is_escrow_funded(escrow_id) == true, Errors::ESCROW_NOT_FUNDED
+    );
+
+    assert(escrow_contract_dispatcher.get_balance() == amount, Errors::INVALID_AMOUNT);
+
+    stop_cheat_caller_address(contract_address);
+
+    // let depositor approve funds to be released
+    start_cheat_caller_address(contract_address, depositor);
+    escrow_contract_dispatcher.depositor_approve(escrow_id);
+    stop_cheat_caller_address(contract_address);
+
+    // let arbiter approve funds to be released
+    start_cheat_caller_address(contract_address, arbiter);
+    escrow_contract_dispatcher.arbiter_approve(escrow_id);
+    stop_cheat_caller_address(contract_address);
+
+    // release funds to beneficiary
+    start_cheat_caller_address(contract_address, benefeciary_address);
+    escrow_contract_dispatcher.release_funds(escrow_id, usdt_contract_address);
+
+    assert(erc20_dispatcher.balance_of(benefeciary_address) == amount, Errors::INVALID_AMOUNT);
+
+    stop_cheat_caller_address(contract_address);
+}
+
+#[test]
+#[should_panic(expected: 'Depositor not approved')]
+fn test_release_funds_without_depositor_approval() {
+    let (contract_address, usdt_contract_address) = __setup__();
+    println!("Deployed address: {:?}", contract_address);
+
+    let escrow_contract_dispatcher = IEscrowDispatcher { contract_address };
+    let erc20_dispatcher = IERC20Dispatcher { contract_address: usdt_contract_address };
+
+    let escrow_id: u64 = 7;
+    let benefeciary_address = BENEFICIARY();
+    let provider_address = starknet::contract_address_const::<0x124>();
+    let amount: u256 = 250;
+
+    let depositor = DEPOSITOR();
+    let arbiter = ARBITER();
+
+    start_cheat_caller_address(contract_address, depositor);
+
+    escrow_contract_dispatcher
+        .initialize_escrow(escrow_id, benefeciary_address, provider_address, amount);
+
+    let escrow_data = escrow_contract_dispatcher.get_escrow_details(7);
+
+    assert(escrow_data.amount == amount, Errors::INVALID_AMOUNT);
+
+    stop_cheat_caller_address(contract_address);
+
+    start_cheat_caller_address(usdt_contract_address, depositor);
+    erc20_dispatcher.approve(contract_address, amount);
+    stop_cheat_caller_address(usdt_contract_address);
+
+    start_cheat_caller_address(contract_address, depositor);
+    escrow_contract_dispatcher.fund_escrow(escrow_id, amount, usdt_contract_address);
+
+    assert(
+        escrow_contract_dispatcher.is_escrow_funded(escrow_id) == true, Errors::ESCROW_NOT_FUNDED
+    );
+
+    assert(escrow_contract_dispatcher.get_balance() == amount, Errors::INVALID_AMOUNT);
+
+    stop_cheat_caller_address(contract_address);
+
+    // let arbiter approve funds to be released
+    start_cheat_caller_address(contract_address, arbiter);
+    escrow_contract_dispatcher.arbiter_approve(escrow_id);
+    stop_cheat_caller_address(contract_address);
+
+    // release funds to beneficiary
+    start_cheat_caller_address(contract_address, benefeciary_address);
+    escrow_contract_dispatcher.release_funds(escrow_id, usdt_contract_address);
+}
+
+#[test]
+#[should_panic(expected: 'Arbiter not approved')]
+fn test_release_funds_without_arbiter_approval() {
+    let (contract_address, usdt_contract_address) = __setup__();
+    println!("Deployed address: {:?}", contract_address);
+
+    let escrow_contract_dispatcher = IEscrowDispatcher { contract_address };
+    let erc20_dispatcher = IERC20Dispatcher { contract_address: usdt_contract_address };
+
+    let escrow_id: u64 = 7;
+    let benefeciary_address = BENEFICIARY();
+    let provider_address = starknet::contract_address_const::<0x124>();
+    let amount: u256 = 250;
+
+    let depositor = DEPOSITOR();
+
+    start_cheat_caller_address(contract_address, depositor);
+
+    escrow_contract_dispatcher
+        .initialize_escrow(escrow_id, benefeciary_address, provider_address, amount);
+
+    let escrow_data = escrow_contract_dispatcher.get_escrow_details(7);
+
+    assert(escrow_data.amount == amount, Errors::INVALID_AMOUNT);
+
+    stop_cheat_caller_address(contract_address);
+
+    start_cheat_caller_address(usdt_contract_address, depositor);
+    erc20_dispatcher.approve(contract_address, amount);
+    stop_cheat_caller_address(usdt_contract_address);
+
+    start_cheat_caller_address(contract_address, depositor);
+    escrow_contract_dispatcher.fund_escrow(escrow_id, amount, usdt_contract_address);
+
+    assert(
+        escrow_contract_dispatcher.is_escrow_funded(escrow_id) == true, Errors::ESCROW_NOT_FUNDED
+    );
+
+    assert(escrow_contract_dispatcher.get_balance() == amount, Errors::INVALID_AMOUNT);
+
+    stop_cheat_caller_address(contract_address);
+
+    // let depositor approve funds to be released
+    start_cheat_caller_address(contract_address, depositor);
+    escrow_contract_dispatcher.depositor_approve(escrow_id);
+    stop_cheat_caller_address(contract_address);
+
+    // release funds to beneficiary
+    start_cheat_caller_address(contract_address, benefeciary_address);
+    escrow_contract_dispatcher.release_funds(escrow_id, usdt_contract_address);
+}
+
+#[test]
+#[should_panic(expected: 'Escrow does not exist')]
+fn test_release_funds_non_existent_escrow() {
+    let (contract_address, usdt_contract_address) = __setup__();
+    println!("Deployed address: {:?}", contract_address);
+
+    let escrow_contract_dispatcher = IEscrowDispatcher { contract_address };
+    let erc20_dispatcher = IERC20Dispatcher { contract_address: usdt_contract_address };
+
+    let escrow_id: u64 = 7;
+    let fake_escrow_id: u64 = 999; // Non-existent escrow ID
+    let benefeciary_address = BENEFICIARY();
+    let provider_address = starknet::contract_address_const::<0x124>();
+    let amount: u256 = 250;
+
+    let depositor = DEPOSITOR();
+    let arbiter = ARBITER();
+
+    start_cheat_caller_address(contract_address, depositor);
+
+    escrow_contract_dispatcher
+        .initialize_escrow(escrow_id, benefeciary_address, provider_address, amount);
+
+    let escrow_data = escrow_contract_dispatcher.get_escrow_details(7);
+
+    assert(escrow_data.amount == amount, Errors::INVALID_AMOUNT);
+
+    stop_cheat_caller_address(contract_address);
+
+    start_cheat_caller_address(usdt_contract_address, depositor);
+    erc20_dispatcher.approve(contract_address, amount);
+    stop_cheat_caller_address(usdt_contract_address);
+
+    start_cheat_caller_address(contract_address, depositor);
+    escrow_contract_dispatcher.fund_escrow(escrow_id, amount, usdt_contract_address);
+
+    assert(
+        escrow_contract_dispatcher.is_escrow_funded(escrow_id) == true, Errors::ESCROW_NOT_FUNDED
+    );
+
+    assert(escrow_contract_dispatcher.get_balance() == amount, Errors::INVALID_AMOUNT);
+
+    stop_cheat_caller_address(contract_address);
+
+    // let depositor approve funds to be released
+    start_cheat_caller_address(contract_address, depositor);
+    escrow_contract_dispatcher.depositor_approve(escrow_id);
+    stop_cheat_caller_address(contract_address);
+
+    // let arbiter approve funds to be released
+    start_cheat_caller_address(contract_address, arbiter);
+    escrow_contract_dispatcher.arbiter_approve(escrow_id);
+    stop_cheat_caller_address(contract_address);
+
+    // release funds to beneficiary
+    start_cheat_caller_address(contract_address, benefeciary_address);
+    escrow_contract_dispatcher.release_funds(fake_escrow_id, usdt_contract_address);
+
+    assert(erc20_dispatcher.balance_of(benefeciary_address) == amount, Errors::INVALID_AMOUNT);
+
+    stop_cheat_caller_address(contract_address);
+}
+
+
+#[test]
+fn test_release_funds_event_emission() {
+    let (contract_address, usdt_contract_address) = __setup__();
+    println!("Deployed address: {:?}", contract_address);
+
+    let escrow_contract_dispatcher = IEscrowDispatcher { contract_address };
+    let erc20_dispatcher = IERC20Dispatcher { contract_address: usdt_contract_address };
+
+    let mut spy = spy_events();
+
+    let escrow_id: u64 = 7;
+    let benefeciary_address = BENEFICIARY();
+    let provider_address = starknet::contract_address_const::<0x124>();
+    let amount: u256 = 250;
+
+    let depositor = DEPOSITOR();
+    let arbiter = ARBITER();
+
+    start_cheat_caller_address(contract_address, depositor);
+
+    escrow_contract_dispatcher
+        .initialize_escrow(escrow_id, benefeciary_address, provider_address, amount);
+
+    let escrow_data = escrow_contract_dispatcher.get_escrow_details(7);
+
+    assert(escrow_data.amount == amount, Errors::INVALID_AMOUNT);
+
+    stop_cheat_caller_address(contract_address);
+
+    start_cheat_caller_address(usdt_contract_address, depositor);
+    erc20_dispatcher.approve(contract_address, amount);
+    stop_cheat_caller_address(usdt_contract_address);
+
+    start_cheat_caller_address(contract_address, depositor);
+    escrow_contract_dispatcher.fund_escrow(escrow_id, amount, usdt_contract_address);
+
+    assert(
+        escrow_contract_dispatcher.is_escrow_funded(escrow_id) == true, Errors::ESCROW_NOT_FUNDED
+    );
+
+    assert(escrow_contract_dispatcher.get_balance() == amount, Errors::INVALID_AMOUNT);
+
+    stop_cheat_caller_address(contract_address);
+
+    // let depositor approve funds to be released
+    start_cheat_caller_address(contract_address, depositor);
+    escrow_contract_dispatcher.depositor_approve(escrow_id);
+    stop_cheat_caller_address(contract_address);
+
+    // let arbiter approve funds to be released
+    start_cheat_caller_address(contract_address, arbiter);
+    escrow_contract_dispatcher.arbiter_approve(escrow_id);
+    stop_cheat_caller_address(contract_address);
+
+    // release funds to beneficiary
+    start_cheat_caller_address(contract_address, benefeciary_address);
+    escrow_contract_dispatcher.release_funds(escrow_id, usdt_contract_address);
+
+    assert(erc20_dispatcher.balance_of(benefeciary_address) == amount, Errors::INVALID_AMOUNT);
+
+    stop_cheat_caller_address(contract_address);
+
+    // check events are emitted
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    contract_address,
+                    EscrowContract::Event::FundsReleased(
+                        EscrowContract::FundsReleased {
+                            escrow_id: escrow_id, beneficiary: benefeciary_address, amount,
+                        }
+                    )
+                )
+            ]
+        );
+}
