@@ -1,5 +1,5 @@
 #[starknet::contract]
-mod EscrowContract {
+pub mod EscrowContract {
     use core::num::traits::Zero;
     use starknet::{ContractAddress, storage::Map, contract_address_const};
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess, StoragePathEntry};
@@ -47,56 +47,56 @@ mod EscrowContract {
 
     #[derive(Drop, starknet::Event)]
     pub struct DepositorApproved {
-        depositor: ContractAddress,
-        escrow_id: u64,
-        time_of_approval: u64,
+        pub depositor: ContractAddress,
+        pub escrow_id: u64,
+        pub time_of_approval: u64,
     }
 
     #[derive(Drop, starknet::Event)]
     pub struct ArbiterApproved {
-        arbiter: ContractAddress,
-        escrow_id: u64,
-        time_of_approval: u64,
+        pub arbiter: ContractAddress,
+        pub escrow_id: u64,
+        pub time_of_approval: u64,
     }
 
     // Event for escrow initialization
     #[derive(Drop, starknet::Event)]
     pub struct EscrowInitialized {
-        escrow_id: u64,
-        beneficiary: ContractAddress,
-        provider: ContractAddress,
-        amount: u256,
-        timestamp: u64,
+        pub escrow_id: u64,
+        pub beneficiary: ContractAddress,
+        pub provider: ContractAddress,
+        pub amount: u256,
+        pub timestamp: u64,
     }
 
     #[derive(Drop, starknet::Event)]
     pub struct EscrowRefunded {
-        escrow_id: u64,
-        depositor: ContractAddress,
-        amount: u256,
-        timestamp: u64,
+        pub escrow_id: u64,
+        pub depositor: ContractAddress,
+        pub amount: u256,
+        pub timestamp: u64,
     }
 
 
     #[derive(Drop, starknet::Event)]
     pub struct EscrowFunded {
-        depositor: ContractAddress,
-        amount: u256,
-        escrow_address: ContractAddress,
+        pub depositor: ContractAddress,
+        pub amount: u256,
+        pub escrow_address: ContractAddress,
     }
 
     #[derive(Drop, starknet::Event)]
     pub struct RefundEscrow {
-        depositor: ContractAddress,
-        amount: u256,
-        escrow_address: ContractAddress,
+        pub depositor: ContractAddress,
+        pub amount: u256,
+        pub escrow_address: ContractAddress,
     }
 
     #[derive(Drop, starknet::Event)]
     pub struct FundsReleased {
-        escrow_id: u64,
-        beneficiary: ContractAddress,
-        amount: u256,
+        pub escrow_id: u64,
+        pub beneficiary: ContractAddress,
+        pub amount: u256,
     }
 
     #[constructor]
@@ -418,6 +418,14 @@ mod EscrowContract {
 
         fn is_escrow_funded(self: @ContractState, escrow_id: u64) -> bool {
             self.escrow_funded.read(escrow_id)
+        }
+
+        fn get_balance(self: @ContractState) -> u256 {
+            self.balance.read()
+        }
+
+        fn get_escrow_amount(self: @ContractState, escrow_id: u64) -> u256 {
+            self.escrow_amounts.read(escrow_id)
         }
 
         fn check_approvals(self: @ContractState, escrow_id: u64) -> (bool, bool) {
