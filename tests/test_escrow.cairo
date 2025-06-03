@@ -560,3 +560,56 @@ fn test_release_funds_event_emission() {
             ]
         );
 }
+
+#[test]
+#[should_panic(expected: 'Invalid amount')]
+fn test_initialize_zero_amount_should_fail() {
+    let (contract_address, _) = __setup__();
+    let escrow = IEscrowDispatcher { contract_address };
+    let depositor = DEPOSITOR();
+
+    start_cheat_caller_address(contract_address, depositor);
+
+    escrow.initialize_escrow(2, BENEFICIARY(), contract_address_const::<0x999>(), 0);
+
+    stop_cheat_caller_address(contract_address);
+}
+
+#[test]
+#[should_panic(expected: 'Escrow ID already exists')]
+fn test_initialize_twice_same_id_should_fail() {
+    let (contract_address, _) = __setup__();
+
+    let escrow = IEscrowDispatcher { contract_address };
+    let depositor = DEPOSITOR();
+
+    start_cheat_caller_address(contract_address, depositor);
+
+    let escrow_id = 3;
+    let provider = contract_address_const::<0x111>();
+
+    // First call should succeed
+    escrow
+        .initialize_escrow(escrow_id, BENEFICIARY(), provider, 100);
+
+    // Second call should fail
+    let result = escrow
+        .initialize_escrow(escrow_id, BENEFICIARY(), provider, 100);
+
+    stop_cheat_caller_address(contract_address);
+}
+
+#[test]
+#[should_panic(expected: 'Unauthorized caller')]
+fn test_initialize_wrong_caller_should_fail() {
+    let (contract_address, _) = __setup__();
+    let escrow = IEscrowDispatcher { contract_address };
+
+    let wrong_caller = contract_address_const::<0xDEADBEEF>();
+    start_cheat_caller_address(contract_address, wrong_caller);
+
+    let result = escrow
+        .initialize_escrow(4, BENEFICIARY(), contract_address_const::<0x888>(), 100);
+
+    stop_cheat_caller_address(contract_address);
+}
