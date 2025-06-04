@@ -254,9 +254,8 @@ fn test_fund_escrow_event_emission() {
 }
 
 
-
 #[test]
-fn test_depositor_approve(){
+fn test_depositor_approve() {
     let (contract_address, usdt_contract_address) = __setup__();
     println!("Deployed address: {:?}", contract_address);
 
@@ -331,8 +330,7 @@ fn test_depositor_approve_wrong_caller() {
     stop_cheat_caller_address(contract_address);
 
     start_cheat_caller_address(usdt_contract_address, depositor);
-    IERC20Dispatcher { contract_address: usdt_contract_address }
-        .approve(contract_address, amount);
+    IERC20Dispatcher { contract_address: usdt_contract_address }.approve(contract_address, amount);
     stop_cheat_caller_address(usdt_contract_address);
 
     start_cheat_caller_address(contract_address, depositor);
@@ -349,7 +347,7 @@ fn test_depositor_approve_wrong_caller() {
     // approve funds to be released by wrong caller
     start_cheat_caller_address(contract_address, other);
     escrow_contract_dispatcher.depositor_approve(escrow_id);
-   stop_cheat_caller_address(contract_address);
+    stop_cheat_caller_address(contract_address);
 }
 
 
@@ -418,6 +416,70 @@ fn test_depositor_approve_without_funding() {
 }
 
 
+#[test]
+fn test_depositor_approve_event_emission() {
+    let (contract_address, usdt_contract_address) = __setup__();
+    println!("Deployed address: {:?}", contract_address);
+
+    let escrow_contract_dispatcher = IEscrowDispatcher { contract_address };
+    let erc20_dispatcher = IERC20Dispatcher { contract_address: usdt_contract_address };
+
+    let mut spy = spy_events();
+
+    let escrow_id: u64 = 7;
+    let benefeciary_address = BENEFICIARY();
+    let provider_address = starknet::contract_address_const::<0x124>();
+    let amount: u256 = 250;
+
+    let depositor = DEPOSITOR();
+
+    start_cheat_caller_address(contract_address, depositor);
+
+    escrow_contract_dispatcher
+        .initialize_escrow(escrow_id, benefeciary_address, provider_address, amount);
+
+    let escrow_data = escrow_contract_dispatcher.get_escrow_details(7);
+
+    assert(escrow_data.amount == amount, Errors::INVALID_AMOUNT);
+
+    stop_cheat_caller_address(contract_address);
+
+    start_cheat_caller_address(usdt_contract_address, depositor);
+    erc20_dispatcher.approve(contract_address, amount);
+    stop_cheat_caller_address(usdt_contract_address);
+
+    start_cheat_caller_address(contract_address, depositor);
+    escrow_contract_dispatcher.fund_escrow(escrow_id, amount, usdt_contract_address);
+
+    assert(
+        escrow_contract_dispatcher.is_escrow_funded(escrow_id) == true, Errors::ESCROW_NOT_FUNDED
+    );
+
+    assert(escrow_contract_dispatcher.get_balance() == amount, Errors::INVALID_AMOUNT);
+
+    stop_cheat_caller_address(contract_address);
+
+    // approve funds to be released
+    start_cheat_caller_address(contract_address, depositor);
+    escrow_contract_dispatcher.depositor_approve(escrow_id);
+
+    // check events are emitted
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    contract_address,
+                    EscrowContract::Event::DepositorApproved(
+                        EscrowContract::DepositorApproved {
+                            depositor: depositor,
+                            escrow_id: escrow_id,
+                            time_of_approval: starknet::get_block_timestamp()
+                        }
+                    )
+                )
+            ]
+        );
+}
 
 
 #[test]
@@ -756,12 +818,10 @@ fn test_initialize_twice_same_id_should_fail() {
     let provider = contract_address_const::<0x111>();
 
     // First call should succeed
-    escrow
-        .initialize_escrow(escrow_id, BENEFICIARY(), provider, 100);
+    escrow.initialize_escrow(escrow_id, BENEFICIARY(), provider, 100);
 
     // Second call should fail
-    let result = escrow
-        .initialize_escrow(escrow_id, BENEFICIARY(), provider, 100);
+    let result = escrow.initialize_escrow(escrow_id, BENEFICIARY(), provider, 100);
 
     stop_cheat_caller_address(contract_address);
 }
@@ -775,11 +835,8 @@ fn test_initialize_wrong_caller_should_fail() {
     let wrong_caller = contract_address_const::<0xDEADBEEF>();
     start_cheat_caller_address(contract_address, wrong_caller);
 
-    let result = escrow
-        .initialize_escrow(4, BENEFICIARY(), contract_address_const::<0x888>(), 100);
+    let result = escrow.initialize_escrow(4, BENEFICIARY(), contract_address_const::<0x888>(), 100);
 
     stop_cheat_caller_address(contract_address);
 }
-
-
 
