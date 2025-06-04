@@ -253,6 +253,173 @@ fn test_fund_escrow_event_emission() {
         );
 }
 
+
+
+#[test]
+fn test_depositor_approve(){
+    let (contract_address, usdt_contract_address) = __setup__();
+    println!("Deployed address: {:?}", contract_address);
+
+    let escrow_contract_dispatcher = IEscrowDispatcher { contract_address };
+    let erc20_dispatcher = IERC20Dispatcher { contract_address: usdt_contract_address };
+
+    let escrow_id: u64 = 7;
+    let benefeciary_address = BENEFICIARY();
+    let provider_address = starknet::contract_address_const::<0x124>();
+    let amount: u256 = 250;
+
+    let depositor = DEPOSITOR();
+
+    start_cheat_caller_address(contract_address, depositor);
+
+    escrow_contract_dispatcher
+        .initialize_escrow(escrow_id, benefeciary_address, provider_address, amount);
+
+    let escrow_data = escrow_contract_dispatcher.get_escrow_details(7);
+
+    assert(escrow_data.amount == amount, Errors::INVALID_AMOUNT);
+
+    stop_cheat_caller_address(contract_address);
+
+    start_cheat_caller_address(usdt_contract_address, depositor);
+    erc20_dispatcher.approve(contract_address, amount);
+    stop_cheat_caller_address(usdt_contract_address);
+
+    start_cheat_caller_address(contract_address, depositor);
+    escrow_contract_dispatcher.fund_escrow(escrow_id, amount, usdt_contract_address);
+
+    assert(
+        escrow_contract_dispatcher.is_escrow_funded(escrow_id) == true, Errors::ESCROW_NOT_FUNDED
+    );
+
+    assert(escrow_contract_dispatcher.get_balance() == amount, Errors::INVALID_AMOUNT);
+
+    stop_cheat_caller_address(contract_address);
+
+    // approve funds to be released
+    start_cheat_caller_address(contract_address, depositor);
+    escrow_contract_dispatcher.depositor_approve(escrow_id);
+    stop_cheat_caller_address(contract_address);
+}
+
+
+#[test]
+#[should_panic(expected: 'Unauthorized caller')]
+fn test_depositor_approve_wrong_caller() {
+    let (contract_address, usdt_contract_address) = __setup__();
+    println!("Deployed address: {:?}", contract_address);
+
+    let escrow_contract_dispatcher = IEscrowDispatcher { contract_address };
+
+    let escrow_id: u64 = 7;
+    let benefeciary_address = BENEFICIARY();
+    let provider_address = starknet::contract_address_const::<0x124>();
+    let amount: u256 = 250;
+
+    let depositor = DEPOSITOR();
+    let other = OTHER();
+
+    start_cheat_caller_address(contract_address, depositor);
+
+    escrow_contract_dispatcher
+        .initialize_escrow(escrow_id, benefeciary_address, provider_address, amount);
+
+    let escrow_data = escrow_contract_dispatcher.get_escrow_details(7);
+
+    assert(escrow_data.amount == amount, Errors::INVALID_AMOUNT);
+
+    stop_cheat_caller_address(contract_address);
+
+    start_cheat_caller_address(usdt_contract_address, depositor);
+    IERC20Dispatcher { contract_address: usdt_contract_address }
+        .approve(contract_address, amount);
+    stop_cheat_caller_address(usdt_contract_address);
+
+    start_cheat_caller_address(contract_address, depositor);
+    escrow_contract_dispatcher.fund_escrow(escrow_id, amount, usdt_contract_address);
+
+    assert(
+        escrow_contract_dispatcher.is_escrow_funded(escrow_id) == true, Errors::ESCROW_NOT_FUNDED
+    );
+
+    assert(escrow_contract_dispatcher.get_balance() == amount, Errors::INVALID_AMOUNT);
+
+    stop_cheat_caller_address(contract_address);
+
+    // approve funds to be released by wrong caller
+    start_cheat_caller_address(contract_address, other);
+    escrow_contract_dispatcher.depositor_approve(escrow_id);
+   stop_cheat_caller_address(contract_address);
+}
+
+
+#[test]
+#[should_panic(expected: 'Escrow does not exist')]
+fn test_depositor_approve_non_existent_escrow() {
+    let (contract_address, usdt_contract_address) = __setup__();
+    println!("Deployed address: {:?}", contract_address);
+
+    let escrow_contract_dispatcher = IEscrowDispatcher { contract_address };
+
+    let escrow_id: u64 = 7;
+    let benefeciary_address = BENEFICIARY();
+    let provider_address = starknet::contract_address_const::<0x124>();
+    let amount: u256 = 250;
+
+    let depositor = DEPOSITOR();
+
+    start_cheat_caller_address(contract_address, depositor);
+
+    escrow_contract_dispatcher
+        .initialize_escrow(escrow_id, benefeciary_address, provider_address, amount);
+
+    let escrow_data = escrow_contract_dispatcher.get_escrow_details(7);
+
+    assert(escrow_data.amount == amount, Errors::INVALID_AMOUNT);
+
+    stop_cheat_caller_address(contract_address);
+
+    // approve funds to be released for non-existent escrow
+    start_cheat_caller_address(contract_address, depositor);
+    escrow_contract_dispatcher.depositor_approve(999); // Non-existent escrow ID
+}
+
+
+#[test]
+#[should_panic(expected: 'Escrow is not funded')]
+fn test_depositor_approve_without_funding() {
+    let (contract_address, usdt_contract_address) = __setup__();
+    println!("Deployed address: {:?}", contract_address);
+
+    let escrow_contract_dispatcher = IEscrowDispatcher { contract_address };
+
+    let escrow_id: u64 = 7;
+    let benefeciary_address = BENEFICIARY();
+    let provider_address = starknet::contract_address_const::<0x124>();
+    let amount: u256 = 250;
+
+    let depositor = DEPOSITOR();
+
+    start_cheat_caller_address(contract_address, depositor);
+
+    escrow_contract_dispatcher
+        .initialize_escrow(escrow_id, benefeciary_address, provider_address, amount);
+
+    let escrow_data = escrow_contract_dispatcher.get_escrow_details(7);
+
+    assert(escrow_data.amount == amount, Errors::INVALID_AMOUNT);
+
+    stop_cheat_caller_address(contract_address);
+
+    // approve funds to be released without funding
+    start_cheat_caller_address(contract_address, depositor);
+    escrow_contract_dispatcher.depositor_approve(escrow_id);
+    stop_cheat_caller_address(contract_address);
+}
+
+
+
+
 #[test]
 fn test_release_funds() {
     let (contract_address, usdt_contract_address) = __setup__();
@@ -613,3 +780,6 @@ fn test_initialize_wrong_caller_should_fail() {
 
     stop_cheat_caller_address(contract_address);
 }
+
+
+
